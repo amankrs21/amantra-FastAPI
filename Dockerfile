@@ -24,4 +24,4 @@ USER appuser
 
 EXPOSE 7860
 
-CMD ["uv", "run", "uvicorn", "src.app:app", "--host", "0.0.0.0", "--port", "7860"]
+CMD [".venv/bin/uvicorn", "src.app:app", "--host", "0.0.0.0", "--port", "7860"]
