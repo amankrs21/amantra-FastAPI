@@ -3,7 +3,7 @@
 ![Python 3.13](https://img.shields.io/badge/Python-3.13-blue?logo=python)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.135+-009688?logo=fastapi)
 ![MongoDB](https://img.shields.io/badge/MongoDB-Motor-47A248?logo=mongodb)
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow)
+![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue)
 
 FastAPI backend for the **Amantra** mobile/web app — a personal productivity suite with encrypted vault, journal, watchlist tracker, and AI-powered newsletter.
 
@@ -148,4 +148,4 @@ This app is configured to run on [HuggingFace Spaces](https://huggingface.co/spa
 
 ## License
 
-[MIT](LICENSE)
+[Apache 2.0](LICENSE)
