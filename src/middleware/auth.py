@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from fastapi import Depends, HTTPException, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt
 import orjson
+from fastapi import Depends, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from src.config import config
 from src.database import get_db
@@ -17,8 +17,8 @@ async def get_current_user(
 ) -> dict:
     try:
         payload = jwt.decode(credentials.credentials, config.JWT_SECRET, algorithms=["HS256"])
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    except jwt.PyJWTError as exc:
+        raise HTTPException(status_code=401, detail="Invalid or expired token") from exc
     return payload
 
 
@@ -28,8 +28,8 @@ async def verify_encryption_key(
 ) -> dict:
     try:
         payload = jwt.decode(credentials.credentials, config.JWT_SECRET, algorithms=["HS256"])
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    except jwt.PyJWTError as exc:
+        raise HTTPException(status_code=401, detail="Invalid or expired token") from exc
 
     # Parse body for key field
     body_bytes = await request.body()
@@ -45,11 +45,12 @@ async def verify_encryption_key(
     if key:
         db = get_db()
         from bson import ObjectId
+
         user = await db.usermodels.find_one({"_id": ObjectId(payload["id"])})
         if user and user.get("textVerify"):
             try:
                 decrypt(user["textVerify"], key)
-            except Exception:
-                raise HTTPException(status_code=400, detail="Invalid Encryption Key!")
+            except Exception as exc:
+                raise HTTPException(status_code=400, detail="Invalid Encryption Key!") from exc
 
     return payload

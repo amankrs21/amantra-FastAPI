@@ -1,15 +1,14 @@
 from __future__ import annotations
 
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from fastapi import APIRouter, HTTPException, Depends, status
 
 # local imports
 from src.dependencies import get_pin_service
 from src.middleware.auth import verify_encryption_key
 from src.models.user import MessageResponse
-from src.services.pin_service import PinService
 from src.repository.user_repository import UserRepoError
-
+from src.services.pin_service import PinService
 
 pin_route = APIRouter()
 
@@ -31,11 +30,11 @@ async def verify_pin(
     try:
         return await service.verify_key()
     except ValueError as ve:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)) from ve
     except UserRepoError as ure:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(ure))
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(ure)) from ure
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
 
 
 @pin_route.post("/setText", status_code=status.HTTP_200_OK)
@@ -47,11 +46,11 @@ async def set_text(
     try:
         return await service.set_text(current_user["id"], body.key)
     except ValueError as ve:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)) from ve
     except UserRepoError as ure:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(ure))
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(ure)) from ure
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
 
 
 @pin_route.get("/reset", status_code=status.HTTP_200_OK)
@@ -62,8 +61,8 @@ async def reset_pin(
     try:
         return await service.reset_pin(current_user["id"])
     except ValueError as ve:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)) from ve
     except UserRepoError as ure:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(ure))
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(ure)) from ure
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e

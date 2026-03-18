@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import os
 import base64
+import os
+
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 # local imports
@@ -11,7 +12,7 @@ from src.config import config
 def _derive_key(user_key_b64: str) -> bytes:
     password_key = config.PASSWORD_KEY
     decoded = base64.b64decode(user_key_b64).decode("latin-1")
-    padded = decoded + password_key[len(decoded):]
+    padded = decoded + password_key[len(decoded) :]
     return padded.encode("utf-8")[:32]
 
 

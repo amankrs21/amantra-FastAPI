@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import jwt
-import bcrypt
 import secrets
+from datetime import UTC, datetime, timedelta
+
 import aiohttp
-from datetime import datetime, timedelta, timezone
+import bcrypt
+import jwt
 
 # local imports
 from src.config import config
@@ -28,7 +29,7 @@ class AuthHelper:
     @staticmethod
     def create_access_token(data: dict, expires_delta: int = 180) -> str:
         payload = data.copy()
-        payload["exp"] = (datetime.now(timezone.utc) + timedelta(days=expires_delta)).timestamp()
+        payload["exp"] = (datetime.now(UTC) + timedelta(days=expires_delta)).timestamp()
         secret = config.JWT_SECRET
         return jwt.encode(payload, secret, algorithm="HS256")
 
@@ -38,21 +39,24 @@ class AuthHelper:
 
     @staticmethod
     def get_otp_expiry() -> datetime:
-        return datetime.now(timezone.utc) + timedelta(minutes=10)
+        return datetime.now(UTC) + timedelta(minutes=10)
 
     @staticmethod
     async def verify_google_token(id_token_str: str, client_ids: list[str]) -> dict:
         """Verify Google ID token using Google's tokeninfo endpoint via aiohttp."""
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
                 _GOOGLE_CERTS_URL,
                 params={"id_token": id_token_str},
                 timeout=aiohttp.ClientTimeout(total=10),
-            ) as resp:
-                if resp.status != 200:
-                    raise ValueError("Invalid Google token")
-                import orjson
-                idinfo = orjson.loads(await resp.read())
+            ) as resp,
+        ):
+            if resp.status != 200:
+                raise ValueError("Invalid Google token")
+            import orjson
+
+            idinfo = orjson.loads(await resp.read())
 
         if idinfo.get("aud") not in client_ids:
             raise ValueError("Invalid Google client ID")

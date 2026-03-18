@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional, List
 from pydantic import BaseModel
 
 
@@ -13,21 +12,21 @@ class WatchlistAdd(BaseModel):
     title: str
     category: str = "movie"
     status: str = "to_watch"
-    rating: Optional[float] = None
-    notes: Optional[str] = None
-    imageUrl: Optional[str] = None
-    year: Optional[str] = None
+    rating: float | None = None
+    notes: str | None = None
+    imageUrl: str | None = None
+    year: str | None = None
     subscribeNews: bool = False
-    parts: Optional[List[PartItem]] = None
+    parts: list[PartItem] | None = None
 
 
 class WatchlistUpdate(BaseModel):
-    title: Optional[str] = None
-    category: Optional[str] = None
-    status: Optional[str] = None
-    rating: Optional[float] = None
-    notes: Optional[str] = None
-    imageUrl: Optional[str] = None
-    year: Optional[str] = None
-    subscribeNews: Optional[bool] = None
-    parts: Optional[List[PartItem]] = None
+    title: str | None = None
+    category: str | None = None
+    status: str | None = None
+    rating: float | None = None
+    notes: str | None = None
+    imageUrl: str | None = None
+    year: str | None = None
+    subscribeNews: bool | None = None
+    parts: list[PartItem] | None = None

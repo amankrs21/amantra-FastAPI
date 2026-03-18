@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 # local imports
 from src.database import get_db
 
@@ -15,7 +13,7 @@ class NewsletterRepository:
         self._db = get_db()
         self._cache = self._db.newsletter_cache
 
-    async def get_cache(self, cache_key: str) -> Optional[dict]:
+    async def get_cache(self, cache_key: str) -> dict | None:
         return await self._cache.find_one({"_id": cache_key})
 
     async def set_cache(self, cache_key: str, data: dict) -> None:

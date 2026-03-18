@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 # local imports
 from src.dependencies import get_user_service
 from src.middleware.auth import get_current_user
-from src.services.user_service import UserService
+from src.models.user import ChangePasswordRequest, MessageResponse, UpdateUserRequest
 from src.repository.user_repository import UserRepoError
-from src.models.user import UpdateUserRequest, ChangePasswordRequest, MessageResponse
-
+from src.services.user_service import UserService
 
 user_route = APIRouter()
 
@@ -21,11 +20,11 @@ async def fetch_user(
     try:
         return await service.fetch_user(current_user["id"])
     except ValueError as ve:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)) from ve
     except UserRepoError as ure:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(ure))
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(ure)) from ure
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
 
 
 @user_route.patch("/update", status_code=status.HTTP_200_OK)
@@ -37,11 +36,11 @@ async def update_user(
     try:
         return await service.update_user(current_user["id"], body.model_dump())
     except ValueError as ve:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)) from ve
     except UserRepoError as ure:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(ure))
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(ure)) from ure
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
 
 
 @user_route.patch("/changePassword", status_code=status.HTTP_200_OK)
@@ -53,11 +52,11 @@ async def change_password(
     try:
         return await service.change_password(current_user["id"], body.oldPassword, body.newPassword)
     except ValueError as ve:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)) from ve
     except UserRepoError as ure:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(ure))
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(ure)) from ure
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
 
 
 @user_route.delete("/deactivate", status_code=status.HTTP_200_OK)
@@ -68,8 +67,8 @@ async def deactivate_user(
     try:
         return await service.deactivate_user(current_user["id"])
     except ValueError as ve:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)) from ve
     except UserRepoError as ure:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(ure))
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(ure)) from ure
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e

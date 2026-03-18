@@ -1,14 +1,15 @@
 from __future__ import annotations
 
+from src.helpers.auth_helper import AuthHelper
+
 # local imports
 from src.helpers.response_helper import build_user_dict
 from src.models.user import MessageResponse
-from src.helpers.auth_helper import AuthHelper
+from src.repository.journal_repository import JournalRepository
+from src.repository.newsletter_repository import NewsletterRepository
 from src.repository.user_repository import UserRepository
 from src.repository.vault_repository import VaultRepository
-from src.repository.journal_repository import JournalRepository
 from src.repository.watchlist_repository import WatchlistRepository
-from src.repository.newsletter_repository import NewsletterRepository
 
 
 class UserService:
@@ -27,13 +28,11 @@ class UserService:
         self._newsletter_repo = newsletter_repo
         self._helper = AuthHelper()
 
-
     async def fetch_user(self, user_id: str) -> dict:
         user = await self._repo.get_user_by_id(user_id)
         if not user:
             raise ValueError("User not found")
         return build_user_dict(user)
-
 
     async def update_user(self, user_id: str, update: dict) -> MessageResponse:
         filtered = {k: v for k, v in update.items() if v is not None}
@@ -41,7 +40,6 @@ class UserService:
             raise ValueError("Nothing to update")
         await self._repo.update_user(user_id, filtered)
         return MessageResponse(message="User updated")
-
 
     async def change_password(self, user_id: str, old_password: str, new_password: str) -> MessageResponse:
         user = await self._repo.get_user_by_id(user_id)
@@ -52,7 +50,6 @@ class UserService:
         hashed = self._helper.hash_password(new_password)
         await self._repo.update_user(user_id, {"password": hashed})
         return MessageResponse(message="Password changed")
-
 
     async def deactivate_user(self, user_id: str) -> MessageResponse:
         """Delete user and ALL associated data (vaults, journals, watchlists, newsletter cache)."""

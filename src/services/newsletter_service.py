@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 import aiohttp
 import orjson
 
 from src.config import config
 from src.helpers.response_helper import extract_domain
-from src.repository.watchlist_repository import WatchlistRepository
 from src.repository.newsletter_repository import NewsletterRepository
+from src.repository.watchlist_repository import WatchlistRepository
 
 SEARCH_QUERIES = {
     "ai": "latest generative AI news LLM ChatGPT Claude Gemini",
@@ -27,10 +26,9 @@ class NewsletterService:
         self._cache_repo = newsletter_repo
         self._watchlist_repo = watchlist_repo
 
-
     async def get_feed(self, user_id: str, category: str | None = None) -> dict:
         cat = category or "all"
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if cat == "watchlist":
             return await self._fetch_watchlist_news(user_id, now)
@@ -42,7 +40,7 @@ class NewsletterService:
                 if isinstance(fetched_at, str):
                     fetched_at = datetime.fromisoformat(fetched_at.replace("Z", "+00:00"))
                 if fetched_at.tzinfo is None:
-                    fetched_at = fetched_at.replace(tzinfo=timezone.utc)
+                    fetched_at = fetched_at.replace(tzinfo=UTC)
                 if now - fetched_at < timedelta(hours=CACHE_HOURS):
                     articles = cached.get("articles", [])
                     if cat != "all":
@@ -64,7 +62,6 @@ class NewsletterService:
 
         return {"articles": result, "category": cat, "fetchedAt": now.isoformat()}
 
-
     async def _fetch_watchlist_news(self, user_id: str, now: datetime) -> dict:
         cache_key = f"watchlist_news:{user_id}"
 
@@ -75,9 +72,14 @@ class NewsletterService:
                 if isinstance(fetched_at, str):
                     fetched_at = datetime.fromisoformat(fetched_at.replace("Z", "+00:00"))
                 if fetched_at.tzinfo is None:
-                    fetched_at = fetched_at.replace(tzinfo=timezone.utc)
+                    fetched_at = fetched_at.replace(tzinfo=UTC)
                 if now - fetched_at < timedelta(hours=CACHE_HOURS):
-                    return {"articles": cached.get("articles", []), "category": "watchlist", "fetchedAt": cached["fetchedAt"], "cached": True}
+                    return {
+                        "articles": cached.get("articles", []),
+                        "category": "watchlist",
+                        "fetchedAt": cached["fetchedAt"],
+                        "cached": True,
+                    }
 
         subscribed = await self._watchlist_repo.get_subscribed_by_user(user_id)
         titles = [item["title"] for item in subscribed]
@@ -91,16 +93,29 @@ class NewsletterService:
 
         raw_results: list[dict] = []
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://api.tavily.com/search",
-                    json={"api_key": tavily_key, "query": query, "max_results": 20, "search_depth": "basic", "include_answer": False, "days": 2},
-                    timeout=aiohttp.ClientTimeout(total=20),
-                ) as resp:
-                    if resp.status == 200:
-                        data = orjson.loads(await resp.read())
-                        for r in data.get("results", [])[:20]:
-                            raw_results.append({"title": r.get("title", ""), "content": r.get("content", ""), "url": r.get("url", ""), "published_date": r.get("published_date", "")})
+            async with aiohttp.ClientSession() as session, session.post(
+                "https://api.tavily.com/search",
+                json={
+                    "api_key": tavily_key,
+                    "query": query,
+                    "max_results": 20,
+                    "search_depth": "basic",
+                    "include_answer": False,
+                    "days": 2,
+                },
+                timeout=aiohttp.ClientTimeout(total=20),
+            ) as resp:
+                if resp.status == 200:
+                    data = orjson.loads(await resp.read())
+                    for r in data.get("results", [])[:20]:
+                        raw_results.append(
+                            {
+                                "title": r.get("title", ""),
+                                "content": r.get("content", ""),
+                                "url": r.get("url", ""),
+                                "published_date": r.get("published_date", ""),
+                            }
+                        )
         except Exception as e:
             print(f"Tavily watchlist search error: {e}")
             return {"articles": [], "category": "watchlist"}
@@ -115,22 +130,33 @@ class NewsletterService:
 
         if not articles:
             for r in raw_results:
-                matched_title = next((t for t in titles if t.lower() in r["title"].lower() or t.lower() in r["content"].lower()), None)
+                matched_title = next(
+                    (t for t in titles if t.lower() in r["title"].lower() or t.lower() in r["content"].lower()), None
+                )
                 if matched_title:
-                    articles.append({"title": r["title"], "description": r["content"][:200], "url": r["url"], "source": extract_domain(r["url"]), "watchlistTitle": matched_title, "tag": "watchlist", "imageUrl": ""})
+                    articles.append(
+                        {
+                            "title": r["title"],
+                            "description": r["content"][:200],
+                            "url": r["url"],
+                            "source": extract_domain(r["url"]),
+                            "watchlistTitle": matched_title,
+                            "tag": "watchlist",
+                            "imageUrl": "",
+                        }
+                    )
 
         fetched_iso = now.isoformat()
         await self._cache_repo.set_cache(cache_key, {"articles": articles, "fetchedAt": fetched_iso})
         return {"articles": articles, "category": "watchlist", "fetchedAt": fetched_iso}
 
-
     async def _mistral_curate_watchlist(self, results: list[dict], titles: list[str], api_key: str) -> list[dict]:
         results_text = "\n".join(
-            f"{i+1}. [{r['title']}]({r['url']}){' (published: ' + r['published_date'] + ')' if r.get('published_date') else ''}\n   {r['content'][:200]}"
+            f"{i + 1}. [{r['title']}]({r['url']}){' (published: ' + r['published_date'] + ')' if r.get('published_date') else ''}\n   {r['content'][:200]}"
             for i, r in enumerate(results)
         )
         titles_text = ", ".join(f'"{t}"' for t in titles)
-        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        now_str = datetime.now(UTC).strftime("%Y-%m-%d")
 
         prompt = f"""You are a news curator. Today is {now_str}. The user subscribes to news about these titles: {titles_text}
 
@@ -159,29 +185,40 @@ Rules:
 - Valid JSON only"""
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://api.mistral.ai/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                    json={"model": MISTRAL_MODEL, "messages": [{"role": "user", "content": prompt}], "temperature": 0.3, "max_tokens": 3000},
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as resp:
-                    if resp.status == 200:
-                        data = orjson.loads(await resp.read())
-                        content = data["choices"][0]["message"]["content"].strip()
-                        if content.startswith("```"):
-                            content = content.split("\n", 1)[1] if "\n" in content else content[3:]
-                        if content.endswith("```"):
-                            content = content[:-3]
-                        curated = orjson.loads(content.strip().encode())
-                        return [
-                            {"title": item.get("title", ""), "description": item.get("summary", ""), "url": item.get("url", ""), "source": item.get("source", ""), "watchlistTitle": item.get("watchlistTitle", ""), "tag": "watchlist", "imageUrl": ""}
-                            for item in curated
-                        ]
+            async with aiohttp.ClientSession() as session, session.post(
+                "https://api.mistral.ai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={
+                    "model": MISTRAL_MODEL,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.3,
+                    "max_tokens": 3000,
+                },
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as resp:
+                if resp.status == 200:
+                    data = orjson.loads(await resp.read())
+                    content = data["choices"][0]["message"]["content"].strip()
+                    if content.startswith("```"):
+                        content = content.split("\n", 1)[1] if "\n" in content else content[3:]
+                    if content.endswith("```"):
+                        content = content[:-3]
+                    curated = orjson.loads(content.strip().encode())
+                    return [
+                        {
+                            "title": item.get("title", ""),
+                            "description": item.get("summary", ""),
+                            "url": item.get("url", ""),
+                            "source": item.get("source", ""),
+                            "watchlistTitle": item.get("watchlistTitle", ""),
+                            "tag": "watchlist",
+                            "imageUrl": "",
+                        }
+                        for item in curated
+                    ]
         except Exception as e:
             print(f"Mistral watchlist curation error: {e}")
         return []
-
 
     async def _search_and_summarize(self, query: str, tag: str) -> list[dict]:
         tavily_key = config.TAVILY_API_KEY
@@ -190,16 +227,30 @@ Rules:
 
         raw_results: list[dict] = []
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://api.tavily.com/search",
-                    json={"api_key": tavily_key, "query": query, "max_results": 10, "search_depth": "basic", "include_answer": False, "days": 2},
-                    timeout=aiohttp.ClientTimeout(total=15),
-                ) as resp:
-                    if resp.status == 200:
-                        data = orjson.loads(await resp.read())
-                        for r in data.get("results", [])[:10]:
-                            raw_results.append({"title": r.get("title", ""), "content": r.get("content", ""), "url": r.get("url", ""), "score": r.get("score", 0), "published_date": r.get("published_date", "")})
+            async with aiohttp.ClientSession() as session, session.post(
+                "https://api.tavily.com/search",
+                json={
+                    "api_key": tavily_key,
+                    "query": query,
+                    "max_results": 10,
+                    "search_depth": "basic",
+                    "include_answer": False,
+                    "days": 2,
+                },
+                timeout=aiohttp.ClientTimeout(total=15),
+            ) as resp:
+                if resp.status == 200:
+                    data = orjson.loads(await resp.read())
+                    for r in data.get("results", [])[:10]:
+                        raw_results.append(
+                            {
+                                "title": r.get("title", ""),
+                                "content": r.get("content", ""),
+                                "url": r.get("url", ""),
+                                "score": r.get("score", 0),
+                                "published_date": r.get("published_date", ""),
+                            }
+                        )
         except Exception as e:
             print(f"Tavily search error: {e}")
             return []
@@ -207,7 +258,7 @@ Rules:
         if not raw_results:
             return []
 
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
+        cutoff = datetime.now(UTC) - timedelta(hours=48)
         filtered_results: list[dict] = []
         for r in raw_results:
             pd = r.get("published_date", "")
@@ -215,7 +266,7 @@ Rules:
                 try:
                     pub_dt = datetime.fromisoformat(pd.replace("Z", "+00:00"))
                     if pub_dt.tzinfo is None:
-                        pub_dt = pub_dt.replace(tzinfo=timezone.utc)
+                        pub_dt = pub_dt.replace(tzinfo=UTC)
                     if pub_dt < cutoff:
                         continue
                 except Exception:
@@ -232,17 +283,24 @@ Rules:
                 return curated
 
         return [
-            {"title": r["title"], "description": r["content"][:200], "url": r["url"], "source": extract_domain(r["url"]), "publishedAt": "", "tag": tag, "imageUrl": ""}
+            {
+                "title": r["title"],
+                "description": r["content"][:200],
+                "url": r["url"],
+                "source": extract_domain(r["url"]),
+                "publishedAt": "",
+                "tag": tag,
+                "imageUrl": "",
+            }
             for r in raw_results[:8]
         ]
 
-
     async def _mistral_curate(self, results: list[dict], tag: str, api_key: str) -> list[dict]:
         results_text = "\n".join(
-            f"{i+1}. [{r['title']}]({r['url']}){' (published: ' + r['published_date'] + ')' if r.get('published_date') else ''}\n   {r['content'][:200]}"
+            f"{i + 1}. [{r['title']}]({r['url']}){' (published: ' + r['published_date'] + ')' if r.get('published_date') else ''}\n   {r['content'][:200]}"
             for i, r in enumerate(results)
         )
-        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        now_str = datetime.now(UTC).strftime("%Y-%m-%d")
 
         prompt = f"""You are a tech news curator. Today is {now_str}. From these search results, pick the top 6-8 most interesting and relevant articles that were published within the LAST 48 HOURS ONLY. Discard any article that appears to be older than 2 days.
 
@@ -260,25 +318,38 @@ Rules:
 - Return valid JSON only"""
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://api.mistral.ai/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                    json={"model": MISTRAL_MODEL, "messages": [{"role": "user", "content": prompt}], "temperature": 0.3, "max_tokens": 2000},
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as resp:
-                    if resp.status == 200:
-                        data = orjson.loads(await resp.read())
-                        content = data["choices"][0]["message"]["content"].strip()
-                        if content.startswith("```"):
-                            content = content.split("\n", 1)[1] if "\n" in content else content[3:]
-                        if content.endswith("```"):
-                            content = content[:-3]
-                        curated = orjson.loads(content.strip().encode())
-                        return [
-                            {"title": item.get("title", ""), "description": item.get("summary", ""), "url": item.get("url", ""), "source": item.get("source", ""), "publishedAt": "", "tag": tag, "imageUrl": "", "relevance": item.get("relevance", "medium")}
-                            for item in curated
-                        ]
+            async with aiohttp.ClientSession() as session, session.post(
+                "https://api.mistral.ai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={
+                    "model": MISTRAL_MODEL,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.3,
+                    "max_tokens": 2000,
+                },
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as resp:
+                if resp.status == 200:
+                    data = orjson.loads(await resp.read())
+                    content = data["choices"][0]["message"]["content"].strip()
+                    if content.startswith("```"):
+                        content = content.split("\n", 1)[1] if "\n" in content else content[3:]
+                    if content.endswith("```"):
+                        content = content[:-3]
+                    curated = orjson.loads(content.strip().encode())
+                    return [
+                        {
+                            "title": item.get("title", ""),
+                            "description": item.get("summary", ""),
+                            "url": item.get("url", ""),
+                            "source": item.get("source", ""),
+                            "publishedAt": "",
+                            "tag": tag,
+                            "imageUrl": "",
+                            "relevance": item.get("relevance", "medium"),
+                        }
+                        for item in curated
+                    ]
         except Exception as e:
             print(f"Mistral curation error: {e}")
         return []

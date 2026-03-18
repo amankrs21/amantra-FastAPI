@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from bson import ObjectId
-from typing import Optional
 
 # local imports
 from src.database import get_db
@@ -16,10 +15,10 @@ class UserRepository:
         self._db = get_db()
         self._users = self._db.usermodels
 
-    async def get_user_by_email(self, email: str) -> Optional[dict]:
+    async def get_user_by_email(self, email: str) -> dict | None:
         return await self._users.find_one({"email": email})
 
-    async def get_user_by_id(self, user_id: str) -> Optional[dict]:
+    async def get_user_by_id(self, user_id: str) -> dict | None:
         return await self._users.find_one({"_id": ObjectId(user_id)})
 
     async def create_user(self, user_doc: dict) -> dict:
@@ -36,5 +35,5 @@ class UserRepository:
     async def delete_user(self, user_id: str) -> None:
         await self._users.delete_one({"_id": ObjectId(user_id)})
 
-    async def find_one(self, query: dict) -> Optional[dict]:
+    async def find_one(self, query: dict) -> dict | None:
         return await self._users.find_one(query)

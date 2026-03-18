@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 # local imports
 from src.config import config
 from src.helpers.auth_helper import AuthHelper
 from src.helpers.response_helper import build_user_response
-from src.services.email_service import EmailService
-from src.repository.user_repository import UserRepository
 from src.models.user import AuthResponse, MessageResponse
+from src.repository.user_repository import UserRepository
+from src.services.email_service import EmailService
 
 
 class AuthService:
@@ -16,7 +16,6 @@ class AuthService:
         self._repo = user_repo
         self._email = email_service
         self._helper = AuthHelper()
-
 
     async def user_login(self, email: str, password: str) -> AuthResponse:
         user = await self._repo.get_user_by_email(email)
@@ -34,8 +33,9 @@ class AuthService:
             isKeySet=user.get("textVerify") is not None,
         )
 
-
-    async def user_register(self, name: str, email: str, password: str, dateOfBirth: str | None = None, weatherCity: str | None = None) -> MessageResponse:
+    async def user_register(
+        self, name: str, email: str, password: str, dateOfBirth: str | None = None, weatherCity: str | None = None
+    ) -> MessageResponse:
         existing = await self._repo.get_user_by_email(email)
         if existing:
             raise ValueError("Email already registered")
@@ -54,12 +54,11 @@ class AuthService:
             "isVerified": False,
             "verificationOTP": otp,
             "otpExpiresAt": otp_expiry,
-            "createdAt": datetime.now(timezone.utc),
+            "createdAt": datetime.now(UTC),
         }
         await self._repo.create_user(user_doc)
         await self._email.send_otp_email(email, otp, purpose="verification")
         return MessageResponse(message="Registration successful. Please check your email for OTP.")
-
 
     async def verify_otp(self, email: str, otp: str) -> AuthResponse:
         user = await self._repo.get_user_by_email(email)
@@ -71,13 +70,18 @@ class AuthService:
         otp_expires = user.get("otpExpiresAt")
         if not stored_otp or stored_otp != otp:
             raise ValueError("Invalid OTP")
-        if otp_expires and datetime.now(timezone.utc) > otp_expires.replace(tzinfo=timezone.utc) if otp_expires.tzinfo is None else otp_expires:
+        if otp_expires and datetime.now(UTC) > (
+            otp_expires.replace(tzinfo=UTC) if otp_expires.tzinfo is None else otp_expires
+        ):
             raise ValueError("OTP has expired")
-        await self._repo.update_user(str(user["_id"]), {
-            "isVerified": True,
-            "verificationOTP": None,
-            "otpExpiresAt": None,
-        })
+        await self._repo.update_user(
+            str(user["_id"]),
+            {
+                "isVerified": True,
+                "verificationOTP": None,
+                "otpExpiresAt": None,
+            },
+        )
         user["isVerified"] = True
         token = self._helper.create_access_token({"id": str(user["_id"]), "name": user.get("name")})
         return AuthResponse(
@@ -87,7 +91,6 @@ class AuthService:
             isKeySet=user.get("textVerify") is not None,
         )
 
-
     async def resend_otp(self, email: str) -> MessageResponse:
         user = await self._repo.get_user_by_email(email)
         if not user:
@@ -96,13 +99,15 @@ class AuthService:
             raise ValueError("Email already verified")
         otp = self._helper.generate_otp()
         otp_expiry = self._helper.get_otp_expiry()
-        await self._repo.update_user(str(user["_id"]), {
-            "verificationOTP": otp,
-            "otpExpiresAt": otp_expiry,
-        })
+        await self._repo.update_user(
+            str(user["_id"]),
+            {
+                "verificationOTP": otp,
+                "otpExpiresAt": otp_expiry,
+            },
+        )
         await self._email.send_otp_email(email, otp, purpose="verification")
         return MessageResponse(message="OTP resent successfully")
-
 
     async def forgot_password(self, email: str) -> MessageResponse:
         user = await self._repo.get_user_by_email(email)
@@ -110,13 +115,15 @@ class AuthService:
             raise ValueError("User not found")
         otp = self._helper.generate_otp()
         otp_expiry = self._helper.get_otp_expiry()
-        await self._repo.update_user(str(user["_id"]), {
-            "verificationOTP": otp,
-            "otpExpiresAt": otp_expiry,
-        })
+        await self._repo.update_user(
+            str(user["_id"]),
+            {
+                "verificationOTP": otp,
+                "otpExpiresAt": otp_expiry,
+            },
+        )
         await self._email.send_otp_email(email, otp, purpose="password reset")
         return MessageResponse(message="OTP sent to your email")
-
 
     async def reset_password(self, email: str, otp: str, password: str) -> MessageResponse:
         user = await self._repo.get_user_by_email(email)
@@ -126,16 +133,20 @@ class AuthService:
         otp_expires = user.get("otpExpiresAt")
         if not stored_otp or stored_otp != otp:
             raise ValueError("Invalid OTP")
-        if otp_expires and datetime.now(timezone.utc) > (otp_expires.replace(tzinfo=timezone.utc) if otp_expires.tzinfo is None else otp_expires):
+        if otp_expires and datetime.now(UTC) > (
+            otp_expires.replace(tzinfo=UTC) if otp_expires.tzinfo is None else otp_expires
+        ):
             raise ValueError("OTP has expired")
         hashed = self._helper.hash_password(password)
-        await self._repo.update_user(str(user["_id"]), {
-            "password": hashed,
-            "verificationOTP": None,
-            "otpExpiresAt": None,
-        })
+        await self._repo.update_user(
+            str(user["_id"]),
+            {
+                "password": hashed,
+                "verificationOTP": None,
+                "otpExpiresAt": None,
+            },
+        )
         return MessageResponse(message="Password reset successful")
-
 
     async def google_auth(self, id_token_str: str) -> AuthResponse:
         idinfo = await self._helper.verify_google_token(id_token_str, config.google_client_ids)
@@ -153,15 +164,17 @@ class AuthService:
                 "isVerified": True,
                 "verificationOTP": None,
                 "otpExpiresAt": None,
-                "createdAt": datetime.now(timezone.utc),
+                "createdAt": datetime.now(UTC),
             }
             user = await self._repo.create_user(user_doc)
-        token = self._helper.create_access_token({
-            "id": str(user["_id"]),
-            "name": user.get("name"),
-            "email": user.get("email"),
-            "avatarUrl": user.get("avatarUrl"),
-        })
+        token = self._helper.create_access_token(
+            {
+                "id": str(user["_id"]),
+                "name": user.get("name"),
+                "email": user.get("email"),
+                "avatarUrl": user.get("avatarUrl"),
+            }
+        )
         return AuthResponse(
             token=token,
             message="Google authentication successful",

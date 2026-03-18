@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from bson import ObjectId
-from typing import Optional
 
 # local imports
 from src.database import get_db
@@ -20,7 +19,7 @@ class VaultRepository:
         cursor = self._vaults.find({"createdBy": ObjectId(user_id)}).sort("updatedAt", -1).skip(offset).limit(limit)
         return await cursor.to_list(limit)
 
-    async def find_one(self, vault_id: str, user_id: str) -> Optional[dict]:
+    async def find_one(self, vault_id: str, user_id: str) -> dict | None:
         return await self._vaults.find_one({"_id": ObjectId(vault_id), "createdBy": ObjectId(user_id)})
 
     async def create(self, doc: dict) -> str:

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, Field, EmailStr
 
+from pydantic import BaseModel, EmailStr, Field
 
 # ── Request Models ──────────────────────────────────────────────────────────
+
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -16,8 +16,8 @@ class RegisterRequest(BaseModel):
     name: str
     email: EmailStr
     password: str
-    dateOfBirth: Optional[str] = None
-    weatherCity: Optional[str] = None
+    dateOfBirth: str | None = None
+    weatherCity: str | None = None
 
 
 class VerifyOTPRequest(BaseModel):
@@ -44,10 +44,10 @@ class GoogleAuthRequest(BaseModel):
 
 
 class UpdateUserRequest(BaseModel):
-    name: Optional[str] = None
-    dateOfBirth: Optional[str] = None
-    weatherCity: Optional[str] = None
-    profilePicture: Optional[str] = None
+    name: str | None = None
+    dateOfBirth: str | None = None
+    weatherCity: str | None = None
+    profilePicture: str | None = None
 
 
 class ChangePasswordRequest(BaseModel):
@@ -57,23 +57,24 @@ class ChangePasswordRequest(BaseModel):
 
 # ── Response Models ─────────────────────────────────────────────────────────
 
+
 class UserResponse(BaseModel):
     id: str
     name: str
     email: str
-    dateOfBirth: Optional[str] = None
-    weatherCity: Optional[str] = None
-    avatarUrl: Optional[str] = None
-    textVerify: Optional[str] = None
+    dateOfBirth: str | None = None
+    weatherCity: str | None = None
+    avatarUrl: str | None = None
+    textVerify: str | None = None
     isVerified: bool = False
-    createdAt: Optional[datetime] = None
+    createdAt: datetime | None = None
 
 
 class AuthResponse(BaseModel):
-    token: Optional[str] = None
-    message: Optional[str] = None
-    user: Optional[UserResponse] = None
-    isKeySet: Optional[bool] = None
+    token: str | None = None
+    message: str | None = None
+    user: UserResponse | None = None
+    isKeySet: bool | None = None
 
 
 class MessageResponse(BaseModel):
@@ -82,15 +83,16 @@ class MessageResponse(BaseModel):
 
 # ── DB Model ────────────────────────────────────────────────────────────────
 
+
 class UserInDB(BaseModel):
     email: str
-    password: Optional[str] = None
+    password: str | None = None
     name: str
-    dateOfBirth: Optional[str] = None
-    weatherCity: Optional[str] = None
-    avatarUrl: Optional[str] = None
-    textVerify: Optional[str] = None
+    dateOfBirth: str | None = None
+    weatherCity: str | None = None
+    avatarUrl: str | None = None
+    textVerify: str | None = None
     isVerified: bool = False
-    verificationOTP: Optional[str] = None
-    otpExpiresAt: Optional[datetime] = None
+    verificationOTP: str | None = None
+    otpExpiresAt: datetime | None = None
     createdAt: datetime = Field(default_factory=datetime.utcnow)

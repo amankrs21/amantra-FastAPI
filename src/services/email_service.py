@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import aiosmtplib
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
+import aiosmtplib
 
 # local imports
 from src.config import config

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from bson import ObjectId
-from typing import Optional
 
 # local imports
 from src.database import get_db
@@ -20,7 +19,7 @@ class WatchlistRepository:
         cursor = self._watchlist.find({"createdBy": ObjectId(user_id)}).sort("createdAt", -1)
         return await cursor.to_list(500)
 
-    async def find_one(self, item_id: str, user_id: str) -> Optional[dict]:
+    async def find_one(self, item_id: str, user_id: str) -> dict | None:
         return await self._watchlist.find_one({"_id": ObjectId(item_id), "createdBy": ObjectId(user_id)})
 
     async def create(self, doc: dict) -> str:
