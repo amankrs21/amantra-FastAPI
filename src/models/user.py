@@ -43,6 +43,18 @@ class GoogleAuthRequest(BaseModel):
     idToken: str
 
 
+class UpdateUserRequest(BaseModel):
+    name: Optional[str] = None
+    dateOfBirth: Optional[str] = None
+    weatherCity: Optional[str] = None
+    profilePicture: Optional[str] = None
+
+
+class ChangePasswordRequest(BaseModel):
+    oldPassword: str
+    newPassword: str
+
+
 # ── Response Models ─────────────────────────────────────────────────────────
 
 class UserResponse(BaseModel):

@@ -4,12 +4,11 @@ from fastapi import APIRouter, HTTPException, Depends, status
 
 # local imports
 from src.dependencies import get_auth_service
-from src.middleware.auth import get_current_user
 from src.services.auth_service import AuthService
 from src.repository.user_repository import UserRepoError
 from src.models.user import (
     LoginRequest, RegisterRequest, VerifyOTPRequest, ResendOTPRequest, ForgotPasswordRequest,
-    ResetPasswordRequest, GoogleAuthRequest, AuthResponse, MessageResponse, UserResponse,
+    ResetPasswordRequest, GoogleAuthRequest, AuthResponse, MessageResponse,
 )
 
 
@@ -128,17 +127,3 @@ async def google_auth(
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-
-@auth_route.get("/me", status_code=status.HTTP_200_OK)
-async def me(
-    current_user: dict = Depends(get_current_user),
-    service: AuthService = Depends(get_auth_service),
-) -> UserResponse:
-    try:
-        return await service.get_current_user(current_user["id"])
-    except ValueError as ve:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
-    except UserRepoError as ure:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(ure))
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

@@ -3,13 +3,13 @@ from __future__ import annotations
 import jwt
 import bcrypt
 import secrets
+import aiohttp
 from datetime import datetime, timedelta, timezone
-
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
 
 # local imports
 from src.config import config
+
+_GOOGLE_CERTS_URL = "https://www.googleapis.com/oauth2/v3/tokeninfo"
 
 
 class AuthHelper:
@@ -41,10 +41,21 @@ class AuthHelper:
         return datetime.now(timezone.utc) + timedelta(minutes=10)
 
     @staticmethod
-    def verify_google_token(id_token_str: str, client_ids: list[str]) -> dict:
-        idinfo = id_token.verify_oauth2_token(
-            id_token_str, google_requests.Request()
-        )
-        if idinfo["aud"] not in client_ids:
+    async def verify_google_token(id_token_str: str, client_ids: list[str]) -> dict:
+        """Verify Google ID token using Google's tokeninfo endpoint via aiohttp."""
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                _GOOGLE_CERTS_URL,
+                params={"id_token": id_token_str},
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                if resp.status != 200:
+                    raise ValueError("Invalid Google token")
+                import orjson
+                idinfo = orjson.loads(await resp.read())
+
+        if idinfo.get("aud") not in client_ids:
             raise ValueError("Invalid Google client ID")
+        if idinfo.get("email_verified") not in ("true", True):
+            raise ValueError("Google email not verified")
         return idinfo

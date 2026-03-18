@@ -5,23 +5,10 @@ from datetime import datetime, timezone
 # local imports
 from src.config import config
 from src.helpers.auth_helper import AuthHelper
-from src.models.user import AuthResponse, UserResponse, MessageResponse
-from src.repository.user_repository import UserRepository
+from src.helpers.response_helper import build_user_response
 from src.services.email_service import EmailService
-
-
-def _build_user_response(user: dict) -> UserResponse:
-    return UserResponse(
-        id=str(user["_id"]),
-        name=user.get("name", ""),
-        email=user.get("email", ""),
-        dateOfBirth=user.get("dateOfBirth"),
-        weatherCity=user.get("weatherCity"),
-        avatarUrl=user.get("avatarUrl"),
-        textVerify=user.get("textVerify"),
-        isVerified=user.get("isVerified", False),
-        createdAt=user.get("createdAt"),
-    )
+from src.repository.user_repository import UserRepository
+from src.models.user import AuthResponse, UserResponse, MessageResponse
 
 
 class AuthService:
@@ -30,7 +17,6 @@ class AuthService:
         self._email = email_service
         self._helper = AuthHelper()
 
-    # ── Login ───────────────────────────────────────────────────────────────
 
     async def user_login(self, email: str, password: str) -> AuthResponse:
         user = await self._repo.get_user_by_email(email)
@@ -44,11 +30,10 @@ class AuthService:
         return AuthResponse(
             token=token,
             message="Login successful",
-            user=_build_user_response(user),
+            user=build_user_response(user),
             isKeySet=user.get("textVerify") is not None,
         )
 
-    # ── Register ────────────────────────────────────────────────────────────
 
     async def user_register(self, name: str, email: str, password: str, dateOfBirth: str | None = None, weatherCity: str | None = None) -> MessageResponse:
         existing = await self._repo.get_user_by_email(email)
@@ -75,7 +60,6 @@ class AuthService:
         await self._email.send_otp_email(email, otp, purpose="verification")
         return MessageResponse(message="Registration successful. Please check your email for OTP.")
 
-    # ── Verify OTP ──────────────────────────────────────────────────────────
 
     async def verify_otp(self, email: str, otp: str) -> AuthResponse:
         user = await self._repo.get_user_by_email(email)
@@ -99,11 +83,10 @@ class AuthService:
         return AuthResponse(
             token=token,
             message="Email verified successfully",
-            user=_build_user_response(user),
+            user=build_user_response(user),
             isKeySet=user.get("textVerify") is not None,
         )
 
-    # ── Resend OTP ──────────────────────────────────────────────────────────
 
     async def resend_otp(self, email: str) -> MessageResponse:
         user = await self._repo.get_user_by_email(email)
@@ -120,7 +103,6 @@ class AuthService:
         await self._email.send_otp_email(email, otp, purpose="verification")
         return MessageResponse(message="OTP resent successfully")
 
-    # ── Forgot Password ─────────────────────────────────────────────────────
 
     async def forgot_password(self, email: str) -> MessageResponse:
         user = await self._repo.get_user_by_email(email)
@@ -135,7 +117,6 @@ class AuthService:
         await self._email.send_otp_email(email, otp, purpose="password reset")
         return MessageResponse(message="OTP sent to your email")
 
-    # ── Reset Password ───────────────────────────────────────────────────────
 
     async def reset_password(self, email: str, otp: str, password: str) -> MessageResponse:
         user = await self._repo.get_user_by_email(email)
@@ -155,10 +136,9 @@ class AuthService:
         })
         return MessageResponse(message="Password reset successful")
 
-    # ── Google Auth ──────────────────────────────────────────────────────────
 
     async def google_auth(self, id_token_str: str) -> AuthResponse:
-        idinfo = self._helper.verify_google_token(id_token_str, config.google_client_ids)
+        idinfo = await self._helper.verify_google_token(id_token_str, config.google_client_ids)
         email = idinfo["email"]
         user = await self._repo.get_user_by_email(email)
         if not user:
@@ -185,14 +165,6 @@ class AuthService:
         return AuthResponse(
             token=token,
             message="Google authentication successful",
-            user=_build_user_response(user),
+            user=build_user_response(user),
             isKeySet=user.get("textVerify") is not None,
         )
-
-    # ── Get Current User ─────────────────────────────────────────────────────
-
-    async def get_current_user(self, user_id: str) -> UserResponse:
-        user = await self._repo.get_user_by_id(user_id)
-        if not user:
-            raise ValueError("User not found")
-        return _build_user_response(user)
