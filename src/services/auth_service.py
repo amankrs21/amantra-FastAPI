@@ -8,7 +8,7 @@ from src.helpers.auth_helper import AuthHelper
 from src.helpers.response_helper import build_user_response
 from src.services.email_service import EmailService
 from src.repository.user_repository import UserRepository
-from src.models.user import AuthResponse, UserResponse, MessageResponse
+from src.models.user import AuthResponse, MessageResponse
 
 
 class AuthService:
