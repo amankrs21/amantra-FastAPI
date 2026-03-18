@@ -1,3 +1,12 @@
+---
+title: Amantra
+emoji: 🔐
+colorFrom: blue
+colorTo: purple
+sdk: docker
+pinned: false
+---
+
 # Amantra Backend
 
 ![Python 3.13](https://img.shields.io/badge/Python-3.13-blue?logo=python)
