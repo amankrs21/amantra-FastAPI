@@ -34,9 +34,9 @@ class AppConfig(BaseSettings):
     # Google OAuth
     GOOGLE_CLIENT_IDS: str = Field(default="", alias="GOOGLE_CLIENT_IDS")
 
-    # SMTP settings
+    # Email settings (Brevo)
+    BREVO_API_KEY: str = Field(default="", alias="BREVO_API_KEY")
     SMTP_EMAIL: str = Field(default="", alias="SMTP_EMAIL")
-    SMTP_PASSWORD: str = Field(default="", alias="SMTP_PASSWORD")
 
     @property
     def google_client_ids(self) -> list[str]:
