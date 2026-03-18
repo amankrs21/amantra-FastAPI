@@ -16,7 +16,6 @@ def get_db():
 async def connect_db():
     global _client, _db
     _client = AsyncIOMotorClient(config.MONGO_URL)
-    # Try to get default database from URI, fallback to explicit name
     try:
         _db = _client.get_default_database()
     except Exception:

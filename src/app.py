@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+from fastapi.openapi.utils import get_openapi
 from fastapi.middleware.cors import CORSMiddleware
 
 # local imports

@@ -30,7 +30,18 @@ class AppConfig(BaseSettings):
     # Tavily and Mistral API keys
     TAVILY_API_KEY: str = Field(default=None, alias="TAVILY_API_KEY")
     MISTRAL_API_KEY: str = Field(default=None, alias="MISTRAL_API_KEY")
-    
+
+    # Google OAuth
+    GOOGLE_CLIENT_IDS: str = Field(default="", alias="GOOGLE_CLIENT_IDS")
+
+    # SMTP settings
+    SMTP_EMAIL: str = Field(default="", alias="SMTP_EMAIL")
+    SMTP_PASSWORD: str = Field(default="", alias="SMTP_PASSWORD")
+
+    @property
+    def google_client_ids(self) -> list[str]:
+        return [cid.strip() for cid in self.GOOGLE_CLIENT_IDS.split(",") if cid.strip()]
+
 
 @lru_cache
 def get_config() -> AppConfig:
