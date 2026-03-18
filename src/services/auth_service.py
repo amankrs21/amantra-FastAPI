@@ -38,7 +38,23 @@ class AuthService:
     ) -> MessageResponse:
         existing = await self._repo.get_user_by_email(email)
         if existing:
-            raise ValueError("Email already registered")
+            if existing.get("isVerified"):
+                raise ValueError("You already have an account. Please login instead.")
+            # User exists but not verified — update their info, resend OTP
+            otp = self._helper.generate_otp()
+            otp_expiry = self._helper.get_otp_expiry()
+            hashed = self._helper.hash_password(password)
+            await self._repo.update_user(str(existing["_id"]), {
+                "name": name,
+                "password": hashed,
+                "dateOfBirth": dateOfBirth,
+                "weatherCity": weatherCity,
+                "verificationOTP": otp,
+                "otpExpiresAt": otp_expiry,
+            })
+            await self._email.send_otp_email(email, otp, purpose="verification")
+            return MessageResponse(message="Registration successful. Please check your email for OTP.")
+
         hashed = self._helper.hash_password(password)
         otp = self._helper.generate_otp()
         otp_expiry = self._helper.get_otp_expiry()
