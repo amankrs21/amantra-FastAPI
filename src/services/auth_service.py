@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 
 # local imports
@@ -10,12 +11,23 @@ from src.models.user import AuthResponse, MessageResponse
 from src.repository.user_repository import UserRepository
 from src.services.email_service import EmailService
 
+logger = logging.getLogger(__name__)
+
 
 class AuthService:
     def __init__(self, user_repo: UserRepository, email_service: EmailService) -> None:
         self._repo = user_repo
         self._email = email_service
         self._helper = AuthHelper()
+
+    async def _send_otp_safe(self, email: str, otp: str, purpose: str = "verification") -> bool:
+        """Send OTP email, return True if sent, False if failed (non-fatal)."""
+        try:
+            await self._email.send_otp_email(email, otp, purpose=purpose)
+            return True
+        except Exception as e:
+            logger.warning("Failed to send OTP email to %s: %s", email, e)
+            return False
 
     async def user_login(self, email: str, password: str) -> AuthResponse:
         user = await self._repo.get_user_by_email(email)
@@ -52,8 +64,9 @@ class AuthService:
                 "verificationOTP": otp,
                 "otpExpiresAt": otp_expiry,
             })
-            await self._email.send_otp_email(email, otp, purpose="verification")
-            return MessageResponse(message="Registration successful. Please check your email for OTP.")
+            sent = await self._send_otp_safe(email, otp, purpose="verification")
+            msg = "Registration successful. Please check your email for OTP." if sent else "Registration successful. OTP email could not be sent — please use 'Resend OTP'."
+            return MessageResponse(message=msg)
 
         hashed = self._helper.hash_password(password)
         otp = self._helper.generate_otp()
@@ -73,8 +86,9 @@ class AuthService:
             "createdAt": datetime.now(UTC),
         }
         await self._repo.create_user(user_doc)
-        await self._email.send_otp_email(email, otp, purpose="verification")
-        return MessageResponse(message="Registration successful. Please check your email for OTP.")
+        sent = await self._send_otp_safe(email, otp, purpose="verification")
+        msg = "Registration successful. Please check your email for OTP." if sent else "Registration successful. OTP email could not be sent — please use 'Resend OTP'."
+        return MessageResponse(message=msg)
 
     async def verify_otp(self, email: str, otp: str) -> AuthResponse:
         user = await self._repo.get_user_by_email(email)
@@ -122,7 +136,9 @@ class AuthService:
                 "otpExpiresAt": otp_expiry,
             },
         )
-        await self._email.send_otp_email(email, otp, purpose="verification")
+        sent = await self._send_otp_safe(email, otp, purpose="verification")
+        if not sent:
+            raise ValueError("Failed to send OTP email. Please try again later.")
         return MessageResponse(message="OTP resent successfully")
 
     async def forgot_password(self, email: str) -> MessageResponse:
@@ -138,7 +154,9 @@ class AuthService:
                 "otpExpiresAt": otp_expiry,
             },
         )
-        await self._email.send_otp_email(email, otp, purpose="password reset")
+        sent = await self._send_otp_safe(email, otp, purpose="password reset")
+        if not sent:
+            raise ValueError("Failed to send OTP email. Please try again later.")
         return MessageResponse(message="OTP sent to your email")
 
     async def reset_password(self, email: str, otp: str, password: str) -> MessageResponse:
