@@ -8,7 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 # local imports
 from src.config import config
 from src.database import connect_db, close_db
+from src.routers.pin_router import pin_route
 from src.routers.auth_router import auth_route
+from src.routers.user_router import user_route
+from src.routers.vault_router import vault_route
+from src.routers.journal_router import journal_route
+from src.routers.watchlist_router import watchlist_route
+from src.routers.newsletter_router import newsletter_route
 
 
 @asynccontextmanager
@@ -18,7 +24,6 @@ async def lifespan(app: FastAPI):
     await close_db()
 
 
-# Intialize FastAPI app
 app = FastAPI(
     title=config.APP_NAME,
     version=config.APP_VERSION,
@@ -27,7 +32,6 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.CORS_ORIGINS.split(",") if config.CORS_ORIGINS else [],
@@ -36,37 +40,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Health check endpoint
+
 @app.get("/health", tags=["Health"])
 async def health_check() -> dict:
     return {"status": "ok"}
 
 
-# Route inclusion
 app.include_router(auth_route, prefix="/api/auth", tags=["Authentication"])
-# app.include_router(user.router, prefix="/api", tags=["Users"])
-# app.include_router(vault.router, prefix="/api", tags=["Vault"])
-# app.include_router(journal.router, prefix="/api", tags=["Journal"])
-# app.include_router(pin.router, prefix="/api", tags=["Pin"])
-# app.include_router(watchlist.router, prefix="/api", tags=["Watchlist"])
-# app.include_router(newsletter.router, prefix="/api", tags=["Newsletter"])
+app.include_router(user_route, prefix="/api/user", tags=["Users"])
+app.include_router(pin_route, prefix="/api/pin", tags=["Pin"])
+app.include_router(vault_route, prefix="/api/vault", tags=["Vault"])
+app.include_router(journal_route, prefix="/api/journal", tags=["Journal"])
+app.include_router(watchlist_route, prefix="/api/watchlist", tags=["Watchlist"])
+app.include_router(newsletter_route, prefix="/api/newsletter", tags=["Newsletter"])
 
 
-# Swagger UI customization
 def custom_swagger_ui() -> dict:
     if app.openapi_schema:
         return app.openapi_schema
-    
     openapi_schema = get_openapi(
         title=config.APP_NAME,
         version=config.APP_VERSION,
         description=config.APP_DESC,
         routes=app.routes,
     )
-    
     base_server_url = config.ROOT_PATH or "/"
     openapi_schema["servers"] = [{"url": base_server_url}]
-    
     components = openapi_schema.setdefault("components", {})
     components.setdefault("securitySchemes", {})["BearerAuth"] = {
         "type": "http",
@@ -74,9 +73,8 @@ def custom_swagger_ui() -> dict:
         "bearerFormat": "JWT",
     }
     openapi_schema.setdefault("security", []).append({"BearerAuth": []})
-    
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
-# Set custom OpenAPI schema
+
 app.openapi = custom_swagger_ui
