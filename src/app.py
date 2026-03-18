@@ -1,20 +1,20 @@
 from __future__ import annotations
 
-from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from fastapi.openapi.utils import get_openapi
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 
 # local imports
 from src.config import config
-from src.database import connect_db, close_db
-from src.routers.pin_router import pin_route
+from src.database import close_db, connect_db
 from src.routers.auth_router import auth_route
+from src.routers.journal_router import journal_route
+from src.routers.newsletter_router import newsletter_route
+from src.routers.pin_router import pin_route
 from src.routers.user_router import user_route
 from src.routers.vault_router import vault_route
-from src.routers.journal_router import journal_route
 from src.routers.watchlist_router import watchlist_route
-from src.routers.newsletter_router import newsletter_route
 
 
 @asynccontextmanager
@@ -29,7 +29,7 @@ app = FastAPI(
     version=config.APP_VERSION,
     root_path=config.ROOT_PATH,
     description=config.APP_DESC,
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 app.add_middleware(
