@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from bson import ObjectId
+from typing import Optional
 
 # local imports
 from src.database import get_db
@@ -33,6 +32,9 @@ class UserRepository:
             {"_id": ObjectId(user_id)},
             {"$set": update},
         )
+
+    async def delete_user(self, user_id: str) -> None:
+        await self._users.delete_one({"_id": ObjectId(user_id)})
 
     async def find_one(self, query: dict) -> Optional[dict]:
         return await self._users.find_one(query)
