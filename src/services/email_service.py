@@ -42,4 +42,5 @@ class EmailService:
             start_tls=True,
             username=self._smtp_email,
             password=self._smtp_password,
+            timeout=10,
         )
