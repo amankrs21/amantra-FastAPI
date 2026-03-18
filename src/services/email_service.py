@@ -1,18 +1,21 @@
 from __future__ import annotations
 
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+import logging
 
-import aiosmtplib
+import aiohttp
+import orjson
 
-# local imports
 from src.config import config
+
+logger = logging.getLogger(__name__)
+
+BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
 
 
 class EmailService:
     def __init__(self) -> None:
-        self._smtp_email = config.SMTP_EMAIL
-        self._smtp_password = config.SMTP_PASSWORD
+        self._api_key = config.BREVO_API_KEY
+        self._sender_email = config.SMTP_EMAIL
 
     async def send_otp_email(self, to_email: str, otp: str, purpose: str = "verification") -> None:
         subject = f"Amantra - Your OTP for {purpose}"
@@ -29,18 +32,26 @@ class EmailService:
   </div>
 </body>
 </html>"""
-        msg = MIMEMultipart("alternative")
-        msg["From"] = self._smtp_email
-        msg["To"] = to_email
-        msg["Subject"] = subject
-        msg.attach(MIMEText(html, "html"))
 
-        await aiosmtplib.send(
-            msg,
-            hostname="smtp.gmail.com",
-            port=587,
-            start_tls=True,
-            username=self._smtp_email,
-            password=self._smtp_password,
-            timeout=10,
-        )
+        payload = {
+            "sender": {"name": "Amantra", "email": self._sender_email},
+            "to": [{"email": to_email}],
+            "subject": subject,
+            "htmlContent": html,
+        }
+
+        async with aiohttp.ClientSession() as session, session.post(
+            BREVO_API_URL,
+            headers={
+                "api-key": self._api_key,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            data=orjson.dumps(payload),
+            timeout=aiohttp.ClientTimeout(total=10),
+        ) as resp:
+            if resp.status >= 400:
+                body = await resp.text()
+                logger.error("Brevo API error %d: %s", resp.status, body)
+                raise RuntimeError(f"Brevo email failed ({resp.status}): {body}")
+            logger.info("OTP email sent to %s via Brevo", to_email)
