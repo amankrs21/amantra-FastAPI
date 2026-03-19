@@ -9,11 +9,11 @@ from httpx import ASGITransport, AsyncClient
 
 # Set env vars before any src imports
 os.environ.setdefault("MONGO_URL", "mongodb://localhost:27017/testdb")
-os.environ.setdefault("JWT_SECRET", "test-jwt-secret-key-for-testing")
-os.environ.setdefault("PASSWORD_KEY", "01234567890123456789012345678901")
+os.environ.setdefault("JWT_SECRET", "test-only-jwt-secret-not-for-prod!!")  # noqa: S105
+os.environ.setdefault("PASSWORD_KEY", "test-only-key-0123456789ABCDEF!!")  # noqa: S105 — 32 bytes for AES
 os.environ.setdefault("CORS_ORIGINS", "http://localhost:3000")
 os.environ.setdefault("SMTP_EMAIL", "test@test.com")
-os.environ.setdefault("SMTP_PASSWORD", "testpass")
+os.environ.setdefault("SMTP_PASSWORD", "test-only-smtp")  # noqa: S105
 os.environ.setdefault("TAVILY_API_KEY", "test-tavily")
 os.environ.setdefault("MISTRAL_API_KEY", "test-mistral")
 os.environ.setdefault("GOOGLE_CLIENT_IDS", "test-client-id")
@@ -75,7 +75,7 @@ async def client():
         patch("src.database.get_db", return_value=mock_db),
         patch("src.database.connect_db", new_callable=AsyncMock),
         patch("src.database.close_db", new_callable=AsyncMock),
-        patch("src.services.email_service.aiosmtplib.send", new_callable=AsyncMock),
+        patch("src.services.email_service.aiohttp.ClientSession", new_callable=MagicMock),
     ):
         # Clear lru_cache singletons so dependency_overrides work
         from src.dependencies import (
