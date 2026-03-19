@@ -16,7 +16,7 @@ SEARCH_QUERIES = {
     "tech": "technology news software startups innovations today 2026",
 }
 
-CACHE_HOURS = 12
+CACHE_HOURS = 45
 CACHE_KEY = "newsletter_all"
 MISTRAL_MODEL = "mistral-small-latest"
 
