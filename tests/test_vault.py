@@ -8,7 +8,7 @@ from bson import ObjectId
 
 from tests.conftest import TEST_USER_ID
 
-MOCK_KEY = base64.b64encode(b"testkey123456789").decode()
+MOCK_KEY = base64.b64encode(b"testkey123456789").decode()  # Test-only mock encryption key
 
 
 @pytest.mark.asyncio

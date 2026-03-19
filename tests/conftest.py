@@ -25,7 +25,7 @@ _helper = AuthHelper()
 TEST_USER_ID = "507f1f77bcf86cd799439011"
 TEST_USER_EMAIL = "test@example.com"
 TEST_USER_NAME = "Test User"
-TEST_USER_PASSWORD = "SecurePass123!"
+TEST_USER_PASSWORD = os.environ.get("TEST_USER_PASSWORD", "TestOnly_Pass123!")  # noqa: S105
 TEST_USER_HASHED_PW = _helper.hash_password(TEST_USER_PASSWORD)
 
 
