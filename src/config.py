@@ -12,7 +12,7 @@ load_dotenv()  # Load environment variables from .env file
 # Configuration settings
 class AppConfig(BaseSettings):
     # Application settings
-    APP_VERSION: ClassVar[str] = "2.1.0"
+    APP_VERSION: ClassVar[str] = "2.2.0"
     APP_NAME: ClassVar[str] = "Amantra FastAPI Backend"
     APP_DESC: ClassVar[str] = (
         "FastAPI backend for Amantra app - vault, journal, watchlist, newsletter features with Google OAuth and AI integration."
