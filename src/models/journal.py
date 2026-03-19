@@ -7,6 +7,7 @@ class JournalAddRequest(BaseModel):
     key: str
     title: str
     content: str
+    category: str | None = None
 
 
 class JournalUpdateRequest(BaseModel):
@@ -14,6 +15,7 @@ class JournalUpdateRequest(BaseModel):
     key: str
     title: str
     content: str
+    category: str | None = None
 
 
 class JournalDecryptRequest(BaseModel):

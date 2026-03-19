@@ -13,7 +13,7 @@ MOCK_KEY = base64.b64encode(b"testkey123456789").decode()
 
 @pytest.mark.asyncio
 async def test_fetch_journals(client, auth_headers):
-    journals = [{"_id": ObjectId(), "title": "Day 1", "content": "enc", "updatedAt": None}]
+    journals = [{"_id": ObjectId(), "title": "Day 1", "content": "enc", "category": "work", "updatedAt": None}]
     with patch(
         "src.repository.journal_repository.JournalRepository.find_by_user",
         new_callable=AsyncMock,
@@ -22,6 +22,7 @@ async def test_fetch_journals(client, auth_headers):
         resp = await client.get("/api/journal/fetch", headers=auth_headers)
     assert resp.status_code == 200
     assert resp.json()[0]["content"] is None  # content masked
+    assert resp.json()[0]["category"] == "work"
 
 
 @pytest.mark.asyncio
@@ -32,7 +33,7 @@ async def test_add_journal(client, auth_headers):
         resp = await client.post(
             "/api/journal/add",
             headers=auth_headers,
-            json={"title": "Day 1", "content": "Dear diary...", "key": MOCK_KEY},
+            json={"title": "Day 1", "content": "Dear diary...", "key": MOCK_KEY, "category": "work"},
         )
     assert resp.status_code == 200
     assert resp.json()["_id"] == "j123"
@@ -44,7 +45,7 @@ async def test_update_journal_success(client, auth_headers):
         resp = await client.patch(
             "/api/journal/update",
             headers=auth_headers,
-            json={"id": str(ObjectId()), "title": "Updated", "content": "new content", "key": MOCK_KEY},
+            json={"id": str(ObjectId()), "title": "Updated", "content": "new content", "key": MOCK_KEY, "category": "work"},
         )
     assert resp.status_code == 200
 

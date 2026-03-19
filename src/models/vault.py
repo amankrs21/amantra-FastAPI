@@ -13,6 +13,7 @@ class VaultAddRequest(BaseModel):
     title: str
     username: str
     password: str
+    category: str | None = None
 
 
 class VaultUpdateRequest(BaseModel):
@@ -21,6 +22,7 @@ class VaultUpdateRequest(BaseModel):
     title: str
     username: str
     password: str
+    category: str | None = None
 
 
 class VaultDecryptRequest(BaseModel):

@@ -36,7 +36,7 @@ async def add_vault(
     service: VaultService = Depends(get_vault_service),
 ) -> dict:
     try:
-        return await service.add_vault(current_user["id"], body.title, body.username, body.password, body.key)
+        return await service.add_vault(current_user["id"], body.title, body.username, body.password, body.key, category=body.category)
     except ValueError as ve:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)) from ve
     except VaultRepoError as ure:
@@ -53,7 +53,7 @@ async def update_vault(
 ) -> MessageResponse:
     try:
         return await service.update_vault(
-            body.id, current_user["id"], body.title, body.username, body.password, body.key
+            body.id, current_user["id"], body.title, body.username, body.password, body.key, category=body.category
         )
     except ValueError as ve:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)) from ve
