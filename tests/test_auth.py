@@ -135,3 +135,109 @@ async def test_forgot_password_user_not_found(client):
     ):
         resp = await client.post("/api/auth/forgot-password", json={"email": "nobody@test.com"})
     assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_resend_otp_success(client):
+    user = _make_test_user(isVerified=False)
+    with (
+        patch(
+            "src.repository.user_repository.UserRepository.get_user_by_email", new_callable=AsyncMock, return_value=user
+        ),
+        patch("src.repository.user_repository.UserRepository.update_user", new_callable=AsyncMock),
+        patch("src.services.email_service.EmailService.send_otp_email", new_callable=AsyncMock),
+    ):
+        resp = await client.post("/api/auth/resend-otp", json={"email": TEST_USER_EMAIL})
+    assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_resend_otp_already_verified(client):
+    user = _make_test_user(isVerified=True)
+    with patch(
+        "src.repository.user_repository.UserRepository.get_user_by_email", new_callable=AsyncMock, return_value=user
+    ):
+        resp = await client.post("/api/auth/resend-otp", json={"email": TEST_USER_EMAIL})
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_reset_password_success(client):
+    from datetime import datetime, timedelta
+
+    user = _make_test_user(
+        verificationOTP="123456", otpExpiresAt=datetime.now(UTC) + timedelta(minutes=5)
+    )
+    with (
+        patch(
+            "src.repository.user_repository.UserRepository.get_user_by_email", new_callable=AsyncMock, return_value=user
+        ),
+        patch("src.repository.user_repository.UserRepository.update_user", new_callable=AsyncMock),
+    ):
+        resp = await client.post(
+            "/api/auth/reset-password",
+            json={"email": TEST_USER_EMAIL, "otp": "123456", "password": "NewPass123!"},
+        )
+    assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_reset_password_invalid_otp(client):
+    from datetime import datetime, timedelta
+
+    user = _make_test_user(
+        verificationOTP="123456", otpExpiresAt=datetime.now(UTC) + timedelta(minutes=5)
+    )
+    with patch(
+        "src.repository.user_repository.UserRepository.get_user_by_email", new_callable=AsyncMock, return_value=user
+    ):
+        resp = await client.post(
+            "/api/auth/reset-password",
+            json={"email": TEST_USER_EMAIL, "otp": "000000", "password": "NewPass123!"},
+        )
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_google_auth_success(client):
+    user = _make_test_user(email="google@test.com", name="Google User", avatarUrl="https://pic.test/photo.jpg")
+    with (
+        patch(
+            "src.helpers.auth_helper.AuthHelper.verify_google_token",
+            new_callable=AsyncMock,
+            return_value={"email": "google@test.com", "name": "Google User", "picture": "https://pic.test/photo.jpg"},
+        ),
+        patch(
+            "src.repository.user_repository.UserRepository.get_user_by_email", new_callable=AsyncMock, return_value=user
+        ),
+    ):
+        resp = await client.post("/api/auth/google", json={"idToken": "fake-token"})
+    assert resp.status_code == 200
+    assert resp.json()["token"] is not None
+
+
+@pytest.mark.asyncio
+async def test_google_auth_new_user(client):
+    from bson import ObjectId
+
+    new_user = _make_test_user(
+        _id=ObjectId(), email="newgoogle@test.com", name="New Google User", isVerified=True, password=None
+    )
+    with (
+        patch(
+            "src.helpers.auth_helper.AuthHelper.verify_google_token",
+            new_callable=AsyncMock,
+            return_value={"email": "newgoogle@test.com", "name": "New Google User", "picture": "https://pic.test/new.jpg"},
+        ),
+        patch(
+            "src.repository.user_repository.UserRepository.get_user_by_email", new_callable=AsyncMock, return_value=None
+        ),
+        patch(
+            "src.repository.user_repository.UserRepository.create_user",
+            new_callable=AsyncMock,
+            return_value=new_user,
+        ),
+    ):
+        resp = await client.post("/api/auth/google", json={"idToken": "fake-token"})
+    assert resp.status_code == 200
+    assert resp.json()["token"] is not None

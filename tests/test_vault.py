@@ -8,12 +8,12 @@ from bson import ObjectId
 
 from tests.conftest import TEST_USER_ID
 
-MOCK_KEY = base64.b64encode(b"testkey123456789").decode()
+MOCK_KEY = base64.b64encode(b"testkey123456789").decode()  # Test-only mock encryption key
 
 
 @pytest.mark.asyncio
 async def test_fetch_vaults(client, auth_headers):
-    vaults = [{"_id": ObjectId(), "title": "Gmail", "username": "u", "password": "enc", "updatedAt": None}]
+    vaults = [{"_id": ObjectId(), "title": "Gmail", "username": "u", "password": "enc", "category": "email", "updatedAt": None}]
     with patch(
         "src.repository.vault_repository.VaultRepository.find_by_user", new_callable=AsyncMock, return_value=vaults
     ):
@@ -22,6 +22,7 @@ async def test_fetch_vaults(client, auth_headers):
         )
     assert resp.status_code == 200
     assert resp.json()[0]["password"] is None  # password should be masked
+    assert resp.json()[0]["category"] == "email"
 
 
 @pytest.mark.asyncio
@@ -30,7 +31,7 @@ async def test_add_vault(client, auth_headers):
         resp = await client.post(
             "/api/vault/add",
             headers=auth_headers,
-            json={"title": "Gmail", "username": "user", "password": "pass123", "key": MOCK_KEY},
+            json={"title": "Gmail", "username": "user", "password": "pass123", "key": MOCK_KEY, "category": "email"},
         )
     assert resp.status_code == 200
     assert resp.json()["_id"] == "abc123"
@@ -42,7 +43,7 @@ async def test_update_vault_success(client, auth_headers):
         resp = await client.patch(
             "/api/vault/update",
             headers=auth_headers,
-            json={"id": str(ObjectId()), "title": "Gmail", "username": "user", "password": "newpass", "key": MOCK_KEY},
+            json={"id": str(ObjectId()), "title": "Gmail", "username": "user", "password": "newpass", "key": MOCK_KEY, "category": "social"},
         )
     assert resp.status_code == 200
 
@@ -53,7 +54,7 @@ async def test_update_vault_not_found(client, auth_headers):
         resp = await client.patch(
             "/api/vault/update",
             headers=auth_headers,
-            json={"id": str(ObjectId()), "title": "Gmail", "username": "user", "password": "newpass", "key": MOCK_KEY},
+            json={"id": str(ObjectId()), "title": "Gmail", "username": "user", "password": "newpass", "key": MOCK_KEY, "category": "social"},
         )
     assert resp.status_code == 400
 

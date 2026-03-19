@@ -22,16 +22,18 @@ class JournalService:
                 "_id": str(j["_id"]),
                 "title": j.get("title"),
                 "content": None,
+                "category": j.get("category"),
                 "updatedAt": j.get("updatedAt"),
             }
             for j in journals
         ]
 
-    async def add_journal(self, user_id: str, title: str, content: str, key: str) -> dict:
+    async def add_journal(self, user_id: str, title: str, content: str, key: str, category: str | None = None) -> dict:
         encrypted_content = encrypt(content, key)
         doc = {
             "title": title,
             "content": encrypted_content,
+            "category": category,
             "updatedAt": datetime.now(UTC),
             "createdBy": ObjectId(user_id),
         }
@@ -39,7 +41,7 @@ class JournalService:
         return {"message": "Journal added", "_id": journal_id}
 
     async def update_journal(
-        self, journal_id: str, user_id: str, title: str, content: str, key: str
+        self, journal_id: str, user_id: str, title: str, content: str, key: str, category: str | None = None
     ) -> MessageResponse:
         encrypted_content = encrypt(content, key)
         matched = await self._repo.update(
@@ -48,6 +50,7 @@ class JournalService:
             {
                 "title": title,
                 "content": encrypted_content,
+                "category": category,
                 "updatedAt": datetime.now(UTC),
             },
         )

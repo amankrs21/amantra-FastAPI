@@ -24,17 +24,19 @@ class VaultService:
                 "title": v.get("title"),
                 "username": v.get("username"),
                 "password": None,
+                "category": v.get("category"),
                 "updatedAt": v.get("updatedAt"),
             }
             for v in vaults
         ]
 
-    async def add_vault(self, user_id: str, title: str, username: str, password: str, key: str) -> dict:
+    async def add_vault(self, user_id: str, title: str, username: str, password: str, key: str, category: str | None = None) -> dict:
         encrypted_pw = encrypt(password, key)
         doc = {
             "title": title,
             "username": username,
             "password": encrypted_pw,
+            "category": category,
             "updatedAt": datetime.now(UTC),
             "createdBy": ObjectId(user_id),
         }
@@ -42,7 +44,7 @@ class VaultService:
         return {"message": "Vault added", "_id": vault_id}
 
     async def update_vault(
-        self, vault_id: str, user_id: str, title: str, username: str, password: str, key: str
+        self, vault_id: str, user_id: str, title: str, username: str, password: str, key: str, category: str | None = None
     ) -> MessageResponse:
         encrypted_pw = encrypt(password, key)
         matched = await self._repo.update(
@@ -52,6 +54,7 @@ class VaultService:
                 "title": title,
                 "username": username,
                 "password": encrypted_pw,
+                "category": category,
                 "updatedAt": datetime.now(UTC),
             },
         )

@@ -35,7 +35,7 @@ async def add_journal(
     service: JournalService = Depends(get_journal_service),
 ) -> dict:
     try:
-        return await service.add_journal(current_user["id"], body.title, body.content, body.key)
+        return await service.add_journal(current_user["id"], body.title, body.content, body.key, category=body.category)
     except ValueError as ve:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)) from ve
     except JournalRepoError as ure:
@@ -51,7 +51,7 @@ async def update_journal(
     service: JournalService = Depends(get_journal_service),
 ) -> MessageResponse:
     try:
-        return await service.update_journal(body.id, current_user["id"], body.title, body.content, body.key)
+        return await service.update_journal(body.id, current_user["id"], body.title, body.content, body.key, category=body.category)
     except ValueError as ve:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)) from ve
     except JournalRepoError as ure:

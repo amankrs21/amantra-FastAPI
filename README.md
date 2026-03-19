@@ -136,7 +136,7 @@ uv run uvicorn src.app:app --reload --port 8000
 | `PASSWORD_KEY` | 32-char key for AES-GCM encryption |
 | `GOOGLE_CLIENT_IDS` | Google OAuth client IDs (comma-separated) |
 | `SMTP_EMAIL` | Gmail address for sending OTP |
-| `SMTP_PASSWORD` | Gmail app password |
+| `BREVO_API_KEY` | Brevo API key for sending OTP emails |
 | `TAVILY_API_KEY` | Tavily API key for news search |
 | `MISTRAL_API_KEY` | Mistral AI API key for curation |
 

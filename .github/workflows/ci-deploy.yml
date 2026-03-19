@@ -1,13 +1,13 @@
 name: CI & Deploy to HF Spaces
 
 on:
-  push:
-    branches: [main]
   pull_request:
+    branches: [main]
+  push:
     branches: [main]
 
 jobs:
-  lint-and-test:
+  test:
     name: Lint & Test
     runs-on: ubuntu-latest
 
@@ -52,9 +52,11 @@ jobs:
 
   deploy:
     name: Deploy to Hugging Face Spaces
-    needs: lint-and-test
+    needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -67,3 +69,23 @@ jobs:
         run: |
           git remote add space https://amankrs21:${HF_TOKEN}@huggingface.co/spaces/amankrs21/amantra || true
           git push space main:main --force
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(grep -m1 '^version' pyproject.toml | sed 's/.*"\(.*\)"/\1/')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}-build.${{ github.run_number }}
+          name: Amantra API v${{ steps.version.outputs.version }} (Build ${{ github.run_number }})
+          body: |
+            🚀 **Amantra FastAPI** deployed to Hugging Face Spaces.
+
+            **Version:** ${{ steps.version.outputs.version }}
+            **Commit:** ${{ github.sha }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
