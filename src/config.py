@@ -26,6 +26,11 @@ class AppConfig(BaseSettings):
     MONGO_URL: str = Field(default=None, alias="MONGO_URL")
     JWT_SECRET: str = Field(default=None, alias="JWT_SECRET")
     PASSWORD_KEY: str = Field(default=None, alias="PASSWORD_KEY")
+    ACCESS_TOKEN_EXPIRES_MINUTES: int = Field(default=60, alias="ACCESS_TOKEN_EXPIRES_MINUTES")
+    REFRESH_TOKEN_EXPIRES_HOURS: int = Field(default=24, alias="REFRESH_TOKEN_EXPIRES_HOURS")
+    REFRESH_TOKEN_COOKIE_NAME: str = Field(default="refresh_token", alias="REFRESH_TOKEN_COOKIE_NAME")
+    COOKIE_SAMESITE: str = Field(default="lax", alias="COOKIE_SAMESITE")
+    COOKIE_SECURE: bool = Field(default=False, alias="COOKIE_SECURE")
 
     # Tavily and Mistral API keys
     TAVILY_API_KEY: str = Field(default=None, alias="TAVILY_API_KEY")

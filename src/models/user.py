@@ -95,4 +95,6 @@ class UserInDB(BaseModel):
     isVerified: bool = False
     verificationOTP: str | None = None
     otpExpiresAt: datetime | None = None
+    refreshToken: str | None = None
+    refreshTokenExpiresAt: datetime | None = None
     createdAt: datetime = Field(default_factory=datetime.utcnow)
