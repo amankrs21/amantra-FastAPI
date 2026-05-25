@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 # local imports
 from src.config import config
@@ -10,6 +10,7 @@ from src.helpers.response_helper import build_user_response
 from src.models.user import AuthResponse, MessageResponse
 from src.repository.user_repository import UserRepository
 from src.services.email_service import EmailService
+import jwt
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,30 @@ class AuthService:
         self._email = email_service
         self._helper = AuthHelper()
 
+    def _build_token_payload(self, user: dict) -> dict:
+        return {
+            "id": str(user["_id"]),
+            "name": user.get("name"),
+            "email": user.get("email"),
+            "avatarUrl": user.get("avatarUrl"),
+        }
+
+    async def _issue_tokens(self, user: dict) -> tuple[str, str]:
+        access_token = self._helper.create_access_token(
+            self._build_token_payload(user),
+            expires_delta=config.ACCESS_TOKEN_EXPIRES_MINUTES,
+        )
+        refresh_token = self._helper.create_refresh_token(
+            {"id": str(user["_id"])},
+            expires_delta=config.REFRESH_TOKEN_EXPIRES_HOURS,
+        )
+        refresh_expires_at = datetime.now(UTC) + timedelta(hours=config.REFRESH_TOKEN_EXPIRES_HOURS)
+        await self._repo.update_user(
+            str(user["_id"]),
+            {"refreshToken": refresh_token, "refreshTokenExpiresAt": refresh_expires_at},
+        )
+        return access_token, refresh_token
+
     async def _send_otp_safe(self, email: str, otp: str, purpose: str = "verification") -> bool:
         """Send OTP email, return True if sent, False if failed (non-fatal)."""
         try:
@@ -29,7 +54,7 @@ class AuthService:
             logger.warning("Failed to send OTP email to %s: %s", email, e)
             return False
 
-    async def user_login(self, email: str, password: str) -> AuthResponse:
+    async def user_login(self, email: str, password: str) -> tuple[AuthResponse, str]:
         user = await self._repo.get_user_by_email(email)
         if not user or not user.get("password"):
             raise PermissionError("Invalid credentials")
@@ -37,12 +62,15 @@ class AuthService:
             raise PermissionError("Invalid credentials")
         if not user.get("isVerified", False):
             raise PermissionError("Please verify your email before logging in")
-        token = self._helper.create_access_token({"id": str(user["_id"]), "name": user.get("name")})
-        return AuthResponse(
-            token=token,
-            message="Login successful",
-            user=build_user_response(user),
-            isKeySet=user.get("textVerify") is not None,
+        token, refresh_token = await self._issue_tokens(user)
+        return (
+            AuthResponse(
+                token=token,
+                message="Login successful",
+                user=build_user_response(user),
+                isKeySet=user.get("textVerify") is not None,
+            ),
+            refresh_token,
         )
 
     async def user_register(
@@ -83,6 +111,8 @@ class AuthService:
             "isVerified": False,
             "verificationOTP": otp,
             "otpExpiresAt": otp_expiry,
+            "refreshToken": None,
+            "refreshTokenExpiresAt": None,
             "createdAt": datetime.now(UTC),
         }
         await self._repo.create_user(user_doc)
@@ -90,7 +120,7 @@ class AuthService:
         msg = "Registration successful. Please check your email for OTP." if sent else "Registration successful. OTP email could not be sent — please use 'Resend OTP'."
         return MessageResponse(message=msg)
 
-    async def verify_otp(self, email: str, otp: str) -> AuthResponse:
+    async def verify_otp(self, email: str, otp: str) -> tuple[AuthResponse, str]:
         user = await self._repo.get_user_by_email(email)
         if not user:
             raise ValueError("User not found")
@@ -113,12 +143,15 @@ class AuthService:
             },
         )
         user["isVerified"] = True
-        token = self._helper.create_access_token({"id": str(user["_id"]), "name": user.get("name")})
-        return AuthResponse(
-            token=token,
-            message="Email verified successfully",
-            user=build_user_response(user),
-            isKeySet=user.get("textVerify") is not None,
+        token, refresh_token = await self._issue_tokens(user)
+        return (
+            AuthResponse(
+                token=token,
+                message="Email verified successfully",
+                user=build_user_response(user),
+                isKeySet=user.get("textVerify") is not None,
+            ),
+            refresh_token,
         )
 
     async def resend_otp(self, email: str) -> MessageResponse:
@@ -182,7 +215,7 @@ class AuthService:
         )
         return MessageResponse(message="Password reset successful")
 
-    async def google_auth(self, id_token_str: str) -> AuthResponse:
+    async def google_auth(self, id_token_str: str) -> tuple[AuthResponse, str]:
         idinfo = await self._helper.verify_google_token(id_token_str, config.google_client_ids)
         email = idinfo["email"]
         user = await self._repo.get_user_by_email(email)
@@ -198,20 +231,47 @@ class AuthService:
                 "isVerified": True,
                 "verificationOTP": None,
                 "otpExpiresAt": None,
+                "refreshToken": None,
+                "refreshTokenExpiresAt": None,
                 "createdAt": datetime.now(UTC),
             }
             user = await self._repo.create_user(user_doc)
-        token = self._helper.create_access_token(
-            {
-                "id": str(user["_id"]),
-                "name": user.get("name"),
-                "email": user.get("email"),
-                "avatarUrl": user.get("avatarUrl"),
-            }
+        token, refresh_token = await self._issue_tokens(user)
+        return (
+            AuthResponse(
+                token=token,
+                message="Google authentication successful",
+                user=build_user_response(user),
+                isKeySet=user.get("textVerify") is not None,
+            ),
+            refresh_token,
         )
-        return AuthResponse(
-            token=token,
-            message="Google authentication successful",
-            user=build_user_response(user),
-            isKeySet=user.get("textVerify") is not None,
+
+    async def refresh_tokens(self, refresh_token: str) -> tuple[AuthResponse, str]:
+        try:
+            payload = jwt.decode(refresh_token, config.JWT_SECRET, algorithms=["HS256"])
+        except jwt.PyJWTError as exc:
+            raise PermissionError("Invalid refresh token") from exc
+
+        user_id = payload.get("id")
+        if not user_id:
+            raise PermissionError("Invalid refresh token")
+
+        user = await self._repo.get_user_by_id(user_id)
+        if not user or user.get("refreshToken") != refresh_token:
+            raise PermissionError("Invalid refresh token")
+
+        token, new_refresh_token = await self._issue_tokens(user)
+        return (
+            AuthResponse(
+                token=token,
+                message="Token refreshed",
+                user=build_user_response(user),
+                isKeySet=user.get("textVerify") is not None,
+            ),
+            new_refresh_token,
         )
+
+    async def logout(self, user_id: str) -> MessageResponse:
+        await self._repo.update_user(user_id, {"refreshToken": None, "refreshTokenExpiresAt": None})
+        return MessageResponse(message="Logged out")
