@@ -29,7 +29,14 @@ class AuthHelper:
     @staticmethod
     def create_access_token(data: dict, expires_delta: int = 180) -> str:
         payload = data.copy()
-        payload["exp"] = (datetime.now(UTC) + timedelta(days=expires_delta)).timestamp()
+        payload["exp"] = (datetime.now(UTC) + timedelta(minutes=expires_delta)).timestamp()
+        secret = config.JWT_SECRET
+        return jwt.encode(payload, secret, algorithm="HS256")
+
+    @staticmethod
+    def create_refresh_token(data: dict, expires_delta: int = 24) -> str:
+        payload = data.copy()
+        payload["exp"] = (datetime.now(UTC) + timedelta(hours=expires_delta)).timestamp()
         secret = config.JWT_SECRET
         return jwt.encode(payload, secret, algorithm="HS256")
 
