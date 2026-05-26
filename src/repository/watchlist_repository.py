@@ -44,3 +44,6 @@ class WatchlistRepository:
     async def get_subscribed_by_user(self, user_id: str) -> list[dict]:
         cursor = self._watchlist.find({"createdBy": ObjectId(user_id), "subscribeNews": True})
         return await cursor.to_list(100)
+
+    async def count_by_user(self, user_id: str) -> int:
+        return await self._watchlist.count_documents({"createdBy": ObjectId(user_id)})
