@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 from src.helpers.auth_helper import AuthHelper
 
 # local imports
@@ -59,3 +61,27 @@ class UserService:
         await self._newsletter_repo.delete_user_cache(user_id)
         await self._repo.delete_user(user_id)
         return MessageResponse(message="Account deactivated and all data deleted")
+
+    async def fetch_overview(self, user_id: str) -> dict:
+        vault_count = await self._vault_repo.count_by_user(user_id)
+        notes_count = await self._journal_repo.count_by_user(user_id)
+        watchlist_count = await self._watchlist_repo.count_by_user(user_id)
+        user = await self._repo.get_user_by_id(user_id)
+        key_set = bool(user and user.get("textVerify"))
+        security_score = 25
+        security_score += min(35, math.log1p(vault_count) * 12)
+        security_score += min(20, math.log1p(notes_count) * 8)
+        security_score += min(10, math.log1p(watchlist_count) * 6)
+        if key_set:
+            security_score += 10
+        if vault_count == 0 and notes_count == 0:
+            security_score -= 10
+        security_score = max(0, min(100, round(security_score)))
+        return {
+            "counts": {
+                "vault": vault_count,
+                "notes": notes_count,
+                "watchlist": watchlist_count,
+            },
+            "securityScore": security_score,
+        }
