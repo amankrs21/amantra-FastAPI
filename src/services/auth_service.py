@@ -275,3 +275,20 @@ class AuthService:
     async def logout(self, user_id: str) -> MessageResponse:
         await self._repo.update_user(user_id, {"refreshToken": None, "refreshTokenExpiresAt": None})
         return MessageResponse(message="Logged out")
+
+    async def revoke_refresh_token(self, refresh_token: str) -> MessageResponse:
+        try:
+            payload = jwt.decode(refresh_token, config.JWT_SECRET, algorithms=["HS256"])
+        except jwt.PyJWTError as exc:
+            raise PermissionError("Invalid refresh token") from exc
+
+        user_id = payload.get("id")
+        if not user_id:
+            raise PermissionError("Invalid refresh token")
+
+        user = await self._repo.get_user_by_id(user_id)
+        if not user or user.get("refreshToken") != refresh_token:
+            raise PermissionError("Invalid refresh token")
+
+        await self._repo.update_user(user_id, {"refreshToken": None, "refreshTokenExpiresAt": None})
+        return MessageResponse(message="Logged out")

@@ -43,3 +43,6 @@ class VaultRepository:
 
     async def nullify_passwords_by_user(self, user_id: str) -> None:
         await self._vaults.update_many({"createdBy": ObjectId(user_id)}, {"$set": {"password": None}})
+
+    async def count_by_user(self, user_id: str) -> int:
+        return await self._vaults.count_documents({"createdBy": ObjectId(user_id)})

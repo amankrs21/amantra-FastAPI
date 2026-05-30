@@ -27,6 +27,21 @@ async def fetch_user(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
 
 
+@user_route.get("/overview", status_code=status.HTTP_200_OK)
+async def fetch_overview(
+    current_user: dict = Depends(get_current_user),
+    service: UserService = Depends(get_user_service),
+) -> dict:
+    try:
+        return await service.fetch_overview(current_user["id"])
+    except ValueError as ve:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)) from ve
+    except UserRepoError as ure:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(ure)) from ure
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
+
+
 @user_route.patch("/update", status_code=status.HTTP_200_OK)
 async def update_user(
     body: UpdateUserRequest,

@@ -43,3 +43,6 @@ class JournalRepository:
 
     async def nullify_content_by_user(self, user_id: str) -> None:
         await self._journals.update_many({"createdBy": ObjectId(user_id)}, {"$set": {"content": None}})
+
+    async def count_by_user(self, user_id: str) -> int:
+        return await self._journals.count_documents({"createdBy": ObjectId(user_id)})

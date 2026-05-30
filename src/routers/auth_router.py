@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+import jwt
 
 # local imports
 from src.config import config
 from src.dependencies import get_auth_service
-from src.middleware.auth import get_current_user
 from src.models.user import (
     AuthResponse,
     ForgotPasswordRequest,
@@ -181,12 +181,29 @@ async def refresh_token(
 
 @auth_route.post("/logout", status_code=status.HTTP_200_OK)
 async def logout(
+    request: Request,
     response: Response,
-    current_user: dict = Depends(get_current_user),
     service: AuthService = Depends(get_auth_service),
 ) -> MessageResponse:
     try:
-        await service.logout(current_user["id"])
+        refresh_token = request.cookies.get(config.REFRESH_TOKEN_COOKIE_NAME)
+        if refresh_token:
+            try:
+                await service.revoke_refresh_token(refresh_token)
+            except PermissionError:
+                pass
+        else:
+            auth_header = request.headers.get("Authorization")
+            if auth_header and auth_header.startswith("Bearer "):
+                token = auth_header.split(" ", 1)[1]
+                try:
+                    payload = jwt.decode(token, config.JWT_SECRET, algorithms=["HS256"])
+                    user_id = payload.get("id")
+                    if user_id:
+                        await service.logout(user_id)
+                except jwt.PyJWTError:
+                    pass
+
         samesite = config.COOKIE_SAMESITE.lower() if config.COOKIE_SAMESITE else "lax"
         response.delete_cookie(
             key=config.REFRESH_TOKEN_COOKIE_NAME,
@@ -195,8 +212,6 @@ async def logout(
             secure=config.COOKIE_SECURE,
         )
         return MessageResponse(message="Logged out")
-    except PermissionError as pe:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(pe)) from pe
     except UserRepoError as ure:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(ure)) from ure
     except Exception as e:
