@@ -29,7 +29,12 @@ def get_auth_service() -> AuthService:
 @lru_cache(maxsize=1)
 def _user_service_singleton() -> UserService:
     return UserService(
-        UserRepository(), VaultRepository(), JournalRepository(), WatchlistRepository(), NewsletterRepository()
+        UserRepository(),
+        VaultRepository(),
+        JournalRepository(),
+        WatchlistRepository(),
+        NewsletterRepository(),
+        EmailService(),
     )
 
 
@@ -57,7 +62,7 @@ def get_journal_service() -> JournalService:
 
 @lru_cache(maxsize=1)
 def _pin_service_singleton() -> PinService:
-    return PinService(UserRepository(), VaultRepository(), JournalRepository())
+    return PinService(UserRepository(), VaultRepository(), JournalRepository(), EmailService())
 
 
 def get_pin_service() -> PinService:
