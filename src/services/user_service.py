@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from datetime import UTC, datetime
 
 from src.helpers.auth_helper import AuthHelper
 
@@ -12,6 +13,7 @@ from src.repository.newsletter_repository import NewsletterRepository
 from src.repository.user_repository import UserRepository
 from src.repository.vault_repository import VaultRepository
 from src.repository.watchlist_repository import WatchlistRepository
+from src.services.email_service import EmailService
 
 
 class UserService:
@@ -22,6 +24,7 @@ class UserService:
         journal_repo: JournalRepository,
         watchlist_repo: WatchlistRepository,
         newsletter_repo: NewsletterRepository,
+        email_service: EmailService,
     ) -> None:
         self._repo = user_repo
         self._vault_repo = vault_repo
@@ -29,6 +32,7 @@ class UserService:
         self._watchlist_repo = watchlist_repo
         self._newsletter_repo = newsletter_repo
         self._helper = AuthHelper()
+        self._email = email_service
 
     async def fetch_user(self, user_id: str) -> dict:
         user = await self._repo.get_user_by_id(user_id)
@@ -61,6 +65,50 @@ class UserService:
         await self._newsletter_repo.delete_user_cache(user_id)
         await self._repo.delete_user(user_id)
         return MessageResponse(message="Account deactivated and all data deleted")
+
+    async def request_deactivation_otp(self, user_id: str, email: str) -> MessageResponse:
+        user = await self._repo.get_user_by_id(user_id)
+        if not user:
+            raise ValueError("User not found")
+        if not user.get("email") or user.get("email", "").lower() != email.lower():
+            raise ValueError("Email does not match")
+
+        otp = self._helper.generate_otp()
+        otp_expiry = self._helper.get_otp_expiry()
+        await self._repo.update_user(
+            user_id,
+            {
+                "deactivationOTP": otp,
+                "deactivationOTPExpiresAt": otp_expiry,
+            },
+        )
+        await self._email.send_otp_email(user["email"], otp, purpose="account deletion")
+        return MessageResponse(message="OTP sent")
+
+    async def confirm_deactivation(self, user_id: str, email: str, otp: str) -> MessageResponse:
+        user = await self._repo.get_user_by_id(user_id)
+        if not user:
+            raise ValueError("User not found")
+        if not user.get("email") or user.get("email", "").lower() != email.lower():
+            raise ValueError("Email does not match")
+
+        stored = user.get("deactivationOTP")
+        otp_expires = user.get("deactivationOTPExpiresAt")
+        if not stored or stored != otp:
+            raise ValueError("Invalid OTP")
+        if otp_expires and datetime.now(UTC) > (
+            otp_expires.replace(tzinfo=UTC) if otp_expires.tzinfo is None else otp_expires
+        ):
+            await self._repo.update_user(
+                user_id,
+                {
+                    "deactivationOTP": None,
+                    "deactivationOTPExpiresAt": None,
+                },
+            )
+            raise ValueError("OTP has expired")
+
+        return await self.deactivate_user(user_id)
 
     async def fetch_overview(self, user_id: str) -> dict:
         vault_count = await self._vault_repo.count_by_user(user_id)

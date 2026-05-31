@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -80,8 +81,34 @@ async def test_change_password_wrong_old(client, auth_headers):
 
 
 @pytest.mark.asyncio
-async def test_deactivate_user(client, auth_headers):
+async def test_deactivate_user_request_otp(client, auth_headers):
+    user = _make_test_user()
     with (
+        patch(
+            "src.repository.user_repository.UserRepository.get_user_by_id",
+            new_callable=AsyncMock,
+            return_value=user,
+        ),
+        patch("src.repository.user_repository.UserRepository.update_user", new_callable=AsyncMock),
+        patch("src.services.email_service.EmailService.send_otp_email", new_callable=AsyncMock),
+    ):
+        resp = await client.post("/api/user/deactivate/request", headers=auth_headers, json={"email": user["email"]})
+    assert resp.status_code == 200
+    assert "otp sent" in resp.json()["message"].lower()
+
+
+@pytest.mark.asyncio
+async def test_deactivate_user_confirm_with_otp(client, auth_headers):
+    user = _make_test_user(
+        deactivationOTP="123456",
+        deactivationOTPExpiresAt=datetime.now(UTC) + timedelta(minutes=5),
+    )
+    with (
+        patch(
+            "src.repository.user_repository.UserRepository.get_user_by_id",
+            new_callable=AsyncMock,
+            return_value=user,
+        ),
         patch(
             "src.repository.vault_repository.VaultRepository.delete_many_by_user",
             new_callable=AsyncMock,
@@ -100,6 +127,30 @@ async def test_deactivate_user(client, auth_headers):
         patch("src.repository.newsletter_repository.NewsletterRepository.delete_user_cache", new_callable=AsyncMock),
         patch("src.repository.user_repository.UserRepository.delete_user", new_callable=AsyncMock),
     ):
-        resp = await client.delete("/api/user/deactivate", headers=auth_headers)
+        resp = await client.post(
+            "/api/user/deactivate/confirm",
+            headers=auth_headers,
+            json={"email": user["email"], "otp": "123456"},
+        )
     assert resp.status_code == 200
     assert "deactivated" in resp.json()["message"].lower()
+
+
+@pytest.mark.asyncio
+async def test_deactivate_user_confirm_invalid_otp(client, auth_headers):
+    user = _make_test_user(
+        deactivationOTP="123456",
+        deactivationOTPExpiresAt=datetime.now(UTC) + timedelta(minutes=5),
+    )
+    with patch(
+        "src.repository.user_repository.UserRepository.get_user_by_id",
+        new_callable=AsyncMock,
+        return_value=user,
+    ):
+        resp = await client.post(
+            "/api/user/deactivate/confirm",
+            headers=auth_headers,
+            json={"email": user["email"], "otp": "000000"},
+        )
+    assert resp.status_code == 400
+    assert "invalid otp" in resp.json()["detail"].lower()
