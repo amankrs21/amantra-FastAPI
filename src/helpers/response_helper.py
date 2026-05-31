@@ -25,6 +25,10 @@ def build_user_dict(user: dict) -> dict:
     user.pop("password", None)
     user.pop("verificationOTP", None)
     user.pop("otpExpiresAt", None)
+    user.pop("pinResetOTP", None)
+    user.pop("pinResetOTPExpiresAt", None)
+    user.pop("deactivationOTP", None)
+    user.pop("deactivationOTPExpiresAt", None)
     user["id"] = str(user.pop("_id"))
     return user
 

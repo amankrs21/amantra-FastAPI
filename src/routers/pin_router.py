@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 # local imports
 from src.dependencies import get_pin_service
-from src.middleware.auth import verify_encryption_key
+from src.middleware.auth import get_current_user, verify_encryption_key
 from src.models.user import MessageResponse
 from src.repository.user_repository import UserRepoError
 from src.services.pin_service import PinService
@@ -19,6 +19,10 @@ class SetTextRequest(BaseModel):
 
 class VerifyRequest(BaseModel):
     key: str
+
+
+class ResetOtpRequest(BaseModel):
+    otp: str
 
 
 @pin_route.post("/verify", status_code=status.HTTP_200_OK)
@@ -60,6 +64,37 @@ async def reset_pin(
 ) -> MessageResponse:
     try:
         return await service.reset_pin(current_user["id"])
+    except ValueError as ve:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)) from ve
+    except UserRepoError as ure:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(ure)) from ure
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
+
+
+@pin_route.post("/forgot", status_code=status.HTTP_200_OK)
+async def forgot_encryption_key(
+    current_user: dict = Depends(get_current_user),
+    service: PinService = Depends(get_pin_service),
+) -> MessageResponse:
+    try:
+        return await service.send_reset_otp(current_user["id"])
+    except ValueError as ve:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)) from ve
+    except UserRepoError as ure:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(ure)) from ure
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
+
+
+@pin_route.post("/forgot/verify", status_code=status.HTTP_200_OK)
+async def verify_encryption_key_reset(
+    body: ResetOtpRequest,
+    current_user: dict = Depends(get_current_user),
+    service: PinService = Depends(get_pin_service),
+) -> MessageResponse:
+    try:
+        return await service.verify_reset_otp(current_user["id"], body.otp)
     except ValueError as ve:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)) from ve
     except UserRepoError as ure:

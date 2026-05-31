@@ -55,6 +55,15 @@ class ChangePasswordRequest(BaseModel):
     newPassword: str
 
 
+class DeactivateRequest(BaseModel):
+    email: EmailStr
+
+
+class DeactivateVerifyRequest(BaseModel):
+    email: EmailStr
+    otp: str
+
+
 # ── Response Models ─────────────────────────────────────────────────────────
 
 
@@ -95,6 +104,10 @@ class UserInDB(BaseModel):
     isVerified: bool = False
     verificationOTP: str | None = None
     otpExpiresAt: datetime | None = None
+    pinResetOTP: str | None = None
+    pinResetOTPExpiresAt: datetime | None = None
+    deactivationOTP: str | None = None
+    deactivationOTPExpiresAt: datetime | None = None
     refreshToken: str | None = None
     refreshTokenExpiresAt: datetime | None = None
     createdAt: datetime = Field(default_factory=datetime.utcnow)

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from src.dependencies import get_user_service
 from src.middleware.auth import get_current_user
 from src.models.user import ChangePasswordRequest, MessageResponse, UpdateUserRequest
+from src.models.user import DeactivateRequest, DeactivateVerifyRequest
 from src.repository.user_repository import UserRepoError
 from src.services.user_service import UserService
 
@@ -74,16 +75,29 @@ async def change_password(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
 
 
-@user_route.delete("/deactivate", status_code=status.HTTP_200_OK)
-async def deactivate_user(
+@user_route.post("/deactivate/request", status_code=status.HTTP_200_OK)
+async def request_deactivate(
+    body: DeactivateRequest,
     current_user: dict = Depends(get_current_user),
     service: UserService = Depends(get_user_service),
 ) -> MessageResponse:
     try:
-        return await service.deactivate_user(current_user["id"])
+        return await service.request_deactivation_otp(current_user["id"], body.email)
     except ValueError as ve:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)) from ve
-    except UserRepoError as ure:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(ure)) from ure
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
+
+
+@user_route.post("/deactivate/confirm", status_code=status.HTTP_200_OK)
+async def confirm_deactivate(
+    body: DeactivateVerifyRequest,
+    current_user: dict = Depends(get_current_user),
+    service: UserService = Depends(get_user_service),
+) -> MessageResponse:
+    try:
+        return await service.confirm_deactivation(current_user["id"], body.email, body.otp)
+    except ValueError as ve:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve)) from ve
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
